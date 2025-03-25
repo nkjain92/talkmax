@@ -5,9 +5,6 @@
 
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B-brightgreen)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Beingpax/TalkMax)](https://github.com/Beingpax/TalkMax/releases)
-![GitHub all releases](https://img.shields.io/github/downloads/Beingpax/TalkMax/total)
-![GitHub stars](https://img.shields.io/github/stars/Beingpax/TalkMax?style=social)
 
   <p>
     <a href="https://trytalkmax.com">Website</a> •
@@ -95,5 +92,3 @@ If you encounter any issues or have questions, please:
 - [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin) - Launch at login functionality
 
 ---
-
-Made with ❤️ by Pax
