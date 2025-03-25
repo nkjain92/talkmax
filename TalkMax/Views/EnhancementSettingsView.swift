@@ -44,7 +44,7 @@ extension CustomPrompt {
                         x: 0,
                         y: 3
                     )
-                
+
                 // Decorative background elements
                 Circle()
                     .fill(
@@ -62,7 +62,7 @@ extension CustomPrompt {
                     .frame(width: 50, height: 50)
                     .offset(x: -15, y: -15)
                     .blur(radius: 2)
-                
+
                 // Icon with enhanced effects
                 Image(systemName: icon.rawValue)
                     .font(.system(size: 20, weight: .medium))
@@ -87,7 +87,7 @@ extension CustomPrompt {
                     )
             }
             .frame(width: 48, height: 48)
-            
+
             // Enhanced title styling
             Text(title)
                 .font(.system(size: 11, weight: .medium))
@@ -110,7 +110,7 @@ extension CustomPrompt {
                         Label("Edit", systemImage: "pencil")
                     }
                 }
-                
+
                 if let onDelete = onDelete {
                     Button(role: .destructive) {
                         onDelete(self)
@@ -130,16 +130,10 @@ struct EnhancementSettingsView: View {
     @State private var selectedPromptForEdit: CustomPrompt?
     @State private var isEditingTriggerWord = false
     @State private var tempTriggerWord = ""
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 32) {
-                // Video CTA Section
-                VideoCTAView(
-                    url: "https://dub.sh/promptmode",
-                    subtitle: "Learn how to use AI enhancement modes"
-                )
-                
                 // Main Settings Sections
                 VStack(spacing: 24) {
                     // Enable/Disable Toggle Section
@@ -152,15 +146,15 @@ struct EnhancementSettingsView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                            
+
                             Spacer()
-                            
+
                             Toggle("", isOn: $enhancementService.isEnhancementEnabled)
                                 .toggleStyle(SwitchToggleStyle(tint: .blue))
                                 .labelsHidden()
                                 .scaleEffect(1.2)
                         }
-                        
+
                         HStack(spacing: 20) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Toggle("Clipboard Context", isOn: $enhancementService.useClipboardContext)
@@ -170,7 +164,7 @@ struct EnhancementSettingsView: View {
                                     .font(.caption)
                                     .foregroundColor(enhancementService.isEnhancementEnabled ? .secondary : .secondary.opacity(0.5))
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
                                 Toggle("Screen Capture", isOn: $enhancementService.useScreenCaptureContext)
                                     .toggleStyle(.switch)
@@ -190,12 +184,12 @@ struct EnhancementSettingsView: View {
                                     .stroke(Color.blue.opacity(0.2), lineWidth: 1)
                             )
                     )
-                    
+
                     // 1. AI Provider Integration Section
                     VStack(alignment: .leading, spacing: 16) {
                         Text("AI Provider Integration")
                             .font(.headline)
-                        
+
                         APIKeyManagementView()
                             .background(Color(.windowBackgroundColor).opacity(0.4))
                             .cornerRadius(10)
@@ -203,12 +197,12 @@ struct EnhancementSettingsView: View {
                     .padding()
                     .background(Color(.windowBackgroundColor).opacity(0.4))
                     .cornerRadius(10)
-                    
+
                     // 3. Enhancement Modes & Assistant Section
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Enhancement Modes & Assistant")
                             .font(.headline)
-                        
+
                         // Modes Section
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -226,7 +220,7 @@ struct EnhancementSettingsView: View {
                                 .contentShape(Circle())
                                 .help("Add new mode")
                             }
-                            
+
                             if enhancementService.allPrompts.isEmpty {
                                 Text("No modes available")
                                     .foregroundColor(.secondary)
@@ -235,7 +229,7 @@ struct EnhancementSettingsView: View {
                                 let columns = [
                                     GridItem(.adaptive(minimum: 80, maximum: 100), spacing: 36)
                                 ]
-                                
+
                                 LazyVGrid(columns: columns, spacing: 24) {
                                     ForEach(enhancementService.allPrompts) { prompt in
                                         prompt.promptIcon(
@@ -252,9 +246,9 @@ struct EnhancementSettingsView: View {
                                 .padding(.horizontal, 16)
                             }
                         }
-                        
+
                         Divider()
-                        
+
                         // Assistant Mode Section
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -263,11 +257,11 @@ struct EnhancementSettingsView: View {
                                 Image(systemName: "sparkles")
                                     .foregroundColor(.accentColor)
                             }
-                            
+
                             Text("Configure how to trigger the AI assistant mode")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            
+
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Text("Current Trigger:")
@@ -276,28 +270,28 @@ struct EnhancementSettingsView: View {
                                         .font(.system(.subheadline, design: .monospaced))
                                         .foregroundColor(.accentColor)
                                 }
-                                
+
                                 if isEditingTriggerWord {
                                     VStack(alignment: .leading, spacing: 8) {
                                         HStack {
                                             TextField("New trigger word", text: $tempTriggerWord)
                                                 .textFieldStyle(.roundedBorder)
                                                 .frame(maxWidth: 200)
-                                            
+
                                             Button("Save") {
                                                 enhancementService.assistantTriggerWord = tempTriggerWord
                                                 isEditingTriggerWord = false
                                             }
                                             .buttonStyle(.borderedProminent)
                                             .disabled(tempTriggerWord.isEmpty)
-                                            
+
                                             Button("Cancel") {
                                                 isEditingTriggerWord = false
                                                 tempTriggerWord = enhancementService.assistantTriggerWord
                                             }
                                             .buttonStyle(.bordered)
                                         }
-                                        
+
                                         Text("Default: \"hey\"")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
@@ -310,7 +304,7 @@ struct EnhancementSettingsView: View {
                                     .buttonStyle(.bordered)
                                 }
                             }
-                            
+
                             Text("Start with \"\(enhancementService.assistantTriggerWord), \" to use AI assistant mode")
                                 .font(.caption)
                                 .foregroundColor(.secondary)

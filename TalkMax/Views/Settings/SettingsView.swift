@@ -14,7 +14,7 @@ struct SettingsView: View {
     @State private var showResetOnboardingAlert = false
     @State private var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
     @State private var hasAccessibilityPermission = AXIsProcessTrusted()
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -31,7 +31,7 @@ struct SettingsView: View {
                                 .foregroundColor(.orange)
                                 .font(.subheadline)
                         }
-                        
+
                         HStack(alignment: .center, spacing: 16) {
                             if let shortcut = currentShortcut {
                                 KeyboardShortcutView(shortcut: shortcut)
@@ -40,7 +40,7 @@ struct SettingsView: View {
                                     .foregroundColor(.secondary)
                                     .italic()
                             }
-                            
+
                             Button(action: {
                                 KeyboardShortcuts.reset(.toggleMiniRecorder)
                                 currentShortcut = nil
@@ -51,20 +51,20 @@ struct SettingsView: View {
                             .buttonStyle(.borderless)
                             .help("Reset Shortcut")
                         }
-                        
+
                         KeyboardShortcuts.Recorder("Change Shortcut:", name: .toggleMiniRecorder) { newShortcut in
                             currentShortcut = newShortcut
                             hotkeyManager.updateShortcutStatus()
                         }
                         .controlSize(.large)
-                        
+
                         Divider()
                             .padding(.vertical, 4)
-                        
+
                         VStack(alignment: .leading, spacing: 6) {
                             Toggle("Enable Push-to-Talk", isOn: $hotkeyManager.isPushToTalkEnabled)
                                 .toggleStyle(.switch)
-                            
+
                             if hotkeyManager.isPushToTalkEnabled {
                                 if !hasAccessibilityPermission {
                                     HStack(spacing: 6) {
@@ -75,7 +75,7 @@ struct SettingsView: View {
                                             .foregroundColor(.red)
                                     }
                                     .padding(.vertical, 4)
-                                    
+
                                     Button("Open System Settings") {
                                         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
                                     }
@@ -83,7 +83,7 @@ struct SettingsView: View {
                                     .controlSize(.small)
                                     .padding(.bottom, 4)
                                 }
-                                
+
                                 if currentShortcut == nil {
                                     HStack(spacing: 6) {
                                         Image(systemName: "exclamationmark.triangle.fill")
@@ -94,26 +94,21 @@ struct SettingsView: View {
                                     }
                                     .padding(.vertical, 4)
                                 }
-                            
+
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("Choose Push-to-Talk Key")
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(.secondary)
-                                    
+
                                     PushToTalkKeySelector(selectedKey: $hotkeyManager.pushToTalkKey)
                                         .padding(.vertical, 4)
-                                    
-                                    VideoCTAView(
-                                        url: "https://dub.sh/shortcut",
-                                        subtitle: "Pro tip for Push-to-Talk setup"
-                                    )
                                 }
                                 .padding(.top, 4)
                             }
                         }
                     }
                 }
-                
+
                 // Startup Section
                 SettingsSection(
                     icon: "power",
@@ -123,13 +118,13 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Choose whether TalkMax should start automatically when you log in.")
                             .settingsDescription()
-                        
+
                         LaunchAtLogin.Toggle()
                             .toggleStyle(.switch)
                     }
                 }
-                
-                
+
+
                 // App Appearance Section
                 SettingsSection(
                     icon: "dock.rectangle",
@@ -139,12 +134,12 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Choose how TalkMax appears in your system.")
                             .settingsDescription()
-                        
+
                         Toggle("Hide Dock Icon (Menu Bar Only)", isOn: $menuBarManager.isMenuBarOnly)
                             .toggleStyle(.switch)
                     }
                 }
-                
+
                 // Paste Method Section
                 SettingsSection(
                     icon: "doc.on.clipboard",
@@ -154,7 +149,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Select the method used to paste text. Use AppleScript if you have a non-standard keyboard layout.")
                             .settingsDescription()
-                        
+
                         Toggle("Use AppleScript Paste Method", isOn: Binding(
                             get: { UserDefaults.standard.bool(forKey: "UseAppleScriptPaste") },
                             set: { UserDefaults.standard.set($0, forKey: "UseAppleScriptPaste") }
@@ -162,7 +157,7 @@ struct SettingsView: View {
                         .toggleStyle(.switch)
                     }
                 }
-                
+
                 // Recorder Preference Section
                 SettingsSection(
                     icon: "rectangle.on.rectangle",
@@ -172,7 +167,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Select how you want the recorder to appear on your screen.")
                             .settingsDescription()
-                        
+
                         Picker("Recorder Style", selection: $whisperState.recorderType) {
                             Text("Notch Recorder").tag("notch")
                             Text("Mini Recorder").tag("mini")
@@ -181,7 +176,7 @@ struct SettingsView: View {
                         .padding(.vertical, 4)
                     }
                 }
-                
+
                 // Audio Cleanup Section
                 SettingsSection(
                     icon: "trash.circle",
@@ -190,7 +185,7 @@ struct SettingsView: View {
                 ) {
                     AudioCleanupSettingsView()
                 }
-                
+
                 // Reset Onboarding Section
                 SettingsSection(
                     icon: "arrow.counterclockwise",
@@ -200,7 +195,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Reset the onboarding process to view the app introduction again.")
                             .settingsDescription()
-                        
+
                         Button("Reset Onboarding") {
                             showResetOnboardingAlert = true
                         }
@@ -215,7 +210,7 @@ struct SettingsView: View {
         .onAppear {
             // Check accessibility permission on appear
             hasAccessibilityPermission = AXIsProcessTrusted()
-            
+
             // Start observing accessibility changes
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("AXIsProcessTrustedChanged"),
@@ -234,7 +229,7 @@ struct SettingsView: View {
             Text("Are you sure you want to reset the onboarding? You'll see the introduction screens again the next time you launch the app.")
         }
     }
-    
+
     private func getPushToTalkDescription() -> String {
         switch hotkeyManager.pushToTalkKey {
         case .rightOption:
@@ -255,7 +250,7 @@ struct SettingsSection<Content: View>: View {
     let subtitle: String
     let content: Content
     var showWarning: Bool = false
-    
+
     init(icon: String, title: String, subtitle: String, showWarning: Bool = false, @ViewBuilder content: () -> Content) {
         self.icon = icon
         self.title = title
@@ -263,7 +258,7 @@ struct SettingsSection<Content: View>: View {
         self.showWarning = showWarning
         self.content = content()
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -271,7 +266,7 @@ struct SettingsSection<Content: View>: View {
                     .font(.system(size: 20))
                     .foregroundColor(showWarning ? .red : .accentColor)
                     .frame(width: 24, height: 24)
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.headline)
@@ -279,7 +274,7 @@ struct SettingsSection<Content: View>: View {
                         .font(.subheadline)
                         .foregroundColor(showWarning ? .red : .secondary)
                 }
-                
+
                 if showWarning {
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -287,10 +282,10 @@ struct SettingsSection<Content: View>: View {
                         .help("Permission required for TalkMax to function properly")
                 }
             }
-            
+
             Divider()
                 .padding(.vertical, 4)
-            
+
             content
         }
         .padding(16)
@@ -322,7 +317,7 @@ extension Text {
 
 struct PushToTalkKeySelector: View {
     @Binding var selectedKey: HotkeyManager.PushToTalkKey
-    
+
     var body: some View {
         HStack(spacing: 12) {
             ForEach(HotkeyManager.PushToTalkKey.allCases, id: \.self) { key in
@@ -341,7 +336,7 @@ struct PushToTalkKeySelector: View {
             }
         }
     }
-    
+
     private func getKeySymbol(for key: HotkeyManager.PushToTalkKey) -> String {
         switch key {
         case .rightOption: return "⌥"
@@ -350,7 +345,7 @@ struct PushToTalkKeySelector: View {
         case .rightShift: return "⇧"
         }
     }
-    
+
     private func getKeyText(for key: HotkeyManager.PushToTalkKey) -> String {
         switch key {
         case .rightOption: return "Right Option"
@@ -365,16 +360,16 @@ struct SelectableKeyCapView: View {
     let text: String
     let subtext: String
     let isSelected: Bool
-    
+
     @Environment(\.colorScheme) private var colorScheme
-    
+
     private var keyColor: Color {
         if isSelected {
             return colorScheme == .dark ? Color.accentColor.opacity(0.3) : Color.accentColor.opacity(0.2)
         }
         return colorScheme == .dark ? Color(white: 0.2) : .white
     }
-    
+
     var body: some View {
         VStack(spacing: 4) {
             Text(text)
@@ -385,13 +380,13 @@ struct SelectableKeyCapView: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(keyColor)
-                        
+
                         // Highlight overlay
                         if isSelected {
                             RoundedRectangle(cornerRadius: 8)
                                 .strokeBorder(Color.accentColor, lineWidth: 2)
                         }
-                        
+
                         // Key surface highlight
                         RoundedRectangle(cornerRadius: 8)
                             .fill(
@@ -412,7 +407,7 @@ struct SelectableKeyCapView: View {
                     x: 0,
                     y: 1
                 )
-            
+
             Text(subtext)
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)

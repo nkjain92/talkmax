@@ -98,6 +98,7 @@ struct DynamicSidebar: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.controlBackgroundColor).opacity(0.8))
     }
 }
 
@@ -115,33 +116,44 @@ struct DynamicSidebarButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 24, height: 24)
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 20)
 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .regular))
                     .lineLimit(1)
+
                 Spacer()
+
+                if let count = getCount(for: title), count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
             }
-            .foregroundColor(isSelected ? .white : (isHovered ? .accentColor : .primary))
-            .frame(height: 40)
+            .foregroundColor(isSelected ? .primary : .secondary)
+            .frame(height: 32)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 16)
+            .padding(.horizontal, 16)
             .background(
                 ZStack {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.accentColor)
-                            .shadow(color: Color.accentColor.opacity(0.5), radius: 5, x: 0, y: 2)
+                        Color(.selectedContentBackgroundColor)
+                            .cornerRadius(6)
                     } else if isHovered {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
+                        Color(.unemphasizedSelectedContentBackgroundColor)
+                            .cornerRadius(6)
                     }
                 }
             )
             .padding(.horizontal, 8)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private func getCount(for title: String) -> Int? {
+        // Add counts for specific sections if needed
+        return nil
     }
 }
 

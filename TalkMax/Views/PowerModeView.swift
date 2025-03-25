@@ -5,17 +5,17 @@ enum ConfigurationMode {
     case add
     case edit(PowerModeConfig)
     case editDefault(PowerModeConfig)
-    
+
     var isAdding: Bool {
         if case .add = self { return true }
         return false
     }
-    
+
     var isEditingDefault: Bool {
         if case .editDefault = self { return true }
         return false
     }
-    
+
     var title: String {
         switch self {
         case .add: return "Add Configuration"
@@ -37,7 +37,7 @@ struct ConfigurationSheet: View {
     @Binding var isPresented: Bool
     let powerModeManager: PowerModeManager
     @EnvironmentObject var enhancementService: AIEnhancementService
-    
+
     // State for configuration
     @State private var configurationType: ConfigurationType = .application
     @State private var selectedAppURL: URL?
@@ -45,11 +45,11 @@ struct ConfigurationSheet: View {
     @State private var selectedPromptId: UUID?
     @State private var installedApps: [(url: URL, name: String, bundleId: String, icon: NSImage)] = []
     @State private var searchText = ""
-    
+
     // Website configuration state
     @State private var websiteURL: String = ""
     @State private var websiteName: String = ""
-    
+
     private var filteredApps: [(url: URL, name: String, bundleId: String, icon: NSImage)] {
         if searchText.isEmpty {
             return installedApps
@@ -59,12 +59,12 @@ struct ConfigurationSheet: View {
             app.bundleId.localizedCaseInsensitiveContains(searchText)
         }
     }
-    
+
     init(mode: ConfigurationMode, isPresented: Binding<Bool>, powerModeManager: PowerModeManager) {
         self.mode = mode
         self._isPresented = isPresented
         self.powerModeManager = powerModeManager
-        
+
         switch mode {
         case .add:
             _isAIEnhancementEnabled = State(initialValue: true)
@@ -85,7 +85,7 @@ struct ConfigurationSheet: View {
             }
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -95,18 +95,18 @@ struct ConfigurationSheet: View {
                 Spacer()
             }
             .padding()
-            
+
             Divider()
-            
+
             if mode.isAdding {
                 // Configuration Type Selector
                 Picker("Configuration Type", selection: $configurationType) {
                     Text("Application").tag(ConfigurationType.application)
                     Text("Website").tag(ConfigurationType.website)
                 }
-                
+
                 .padding()
-                
+
                 if configurationType == .application {
                     // Search bar
                     HStack {
@@ -126,7 +126,7 @@ struct ConfigurationSheet: View {
                     .background(Color(.windowBackgroundColor).opacity(0.4))
                     .cornerRadius(8)
                     .padding()
-                    
+
                     // App Grid
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100, maximum: 120), spacing: 16)], spacing: 16) {
@@ -149,7 +149,7 @@ struct ConfigurationSheet: View {
                             TextField("Enter website name", text: $websiteName)
                                 .textFieldStyle(.roundedBorder)
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Website URL")
                                 .font(.headline)
@@ -160,7 +160,7 @@ struct ConfigurationSheet: View {
                     .padding()
                 }
             }
-            
+
             // Configuration Form
             if let config = getConfigForForm() {
                 if let appURL = !mode.isEditingDefault ? NSWorkspace.shared.urlForApplication(withBundleIdentifier: config.bundleIdentifier) : nil {
@@ -181,18 +181,18 @@ struct ConfigurationSheet: View {
                     )
                 }
             }
-            
+
             Divider()
-            
+
             // Bottom buttons
             HStack {
                 Button("Cancel") {
                     isPresented = false
                 }
                 .keyboardShortcut(.escape, modifiers: [])
-                
+
                 Spacer()
-                
+
                 Button(mode.isAdding ? "Add" : "Save") {
                     saveConfiguration()
                 }
@@ -211,7 +211,7 @@ struct ConfigurationSheet: View {
             }
         }
     }
-    
+
     private var canSave: Bool {
         if configurationType == .application {
             return selectedAppURL != nil
@@ -219,7 +219,7 @@ struct ConfigurationSheet: View {
             return !websiteURL.isEmpty && !websiteName.isEmpty
         }
     }
-    
+
     private func getConfigForForm() -> PowerModeConfig? {
         switch mode {
         case .add:
@@ -227,11 +227,11 @@ struct ConfigurationSheet: View {
                 guard let url = selectedAppURL,
                       let bundle = Bundle(url: url),
                       let bundleId = bundle.bundleIdentifier else { return nil }
-                
+
                 let appName = bundle.infoDictionary?["CFBundleName"] as? String ??
                              bundle.infoDictionary?["CFBundleDisplayName"] as? String ??
                              "Unknown App"
-                
+
                 return PowerModeConfig(
                     bundleIdentifier: bundleId,
                     appName: appName,
@@ -253,27 +253,27 @@ struct ConfigurationSheet: View {
             return config
         }
     }
-    
+
     private func loadInstalledApps() {
         // Get both user-installed and system applications
         let userAppURLs = FileManager.default.urls(for: .applicationDirectory, in: .localDomainMask)
         let systemAppURLs = FileManager.default.urls(for: .applicationDirectory, in: .systemDomainMask)
         let allAppURLs = userAppURLs + systemAppURLs
-        
+
         let apps = allAppURLs.flatMap { baseURL -> [URL] in
             let enumerator = FileManager.default.enumerator(
                 at: baseURL,
                 includingPropertiesForKeys: [.isApplicationKey],
                 options: [.skipsHiddenFiles, .skipsPackageDescendants]
             )
-            
+
             return enumerator?.compactMap { item -> URL? in
                 guard let url = item as? URL,
                       url.pathExtension == "app" else { return nil }
                 return url
             } ?? []
         }
-        
+
         installedApps = apps.compactMap { url in
             guard let bundle = Bundle(url: url),
                   let bundleId = bundle.bundleIdentifier,
@@ -281,18 +281,18 @@ struct ConfigurationSheet: View {
                             (bundle.infoDictionary?["CFBundleDisplayName"] as? String) else {
                 return nil
             }
-            
+
             let icon = NSWorkspace.shared.icon(forFile: url.path)
             return (url: url, name: name, bundleId: bundleId, icon: icon)
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
-    
+
     private func saveConfiguration() {
         if isAIEnhancementEnabled && selectedPromptId == nil {
             selectedPromptId = enhancementService.allPrompts.first?.id
         }
-        
+
         switch mode {
         case .add:
             if let config = getConfigForForm() {
@@ -302,31 +302,31 @@ struct ConfigurationSheet: View {
             var updatedConfig = config
             updatedConfig.isAIEnhancementEnabled = isAIEnhancementEnabled
             updatedConfig.selectedPrompt = selectedPromptId?.uuidString
-            
+
             // Update URL configurations if this is a website config
             if configurationType == .website {
                 let urlConfig = URLConfig(url: cleanURL(websiteURL), promptId: selectedPromptId?.uuidString)
                 updatedConfig.urlConfigs = [urlConfig]
                 updatedConfig.appName = websiteName
             }
-            
+
             powerModeManager.updateConfiguration(updatedConfig)
         }
-        
+
         isPresented = false
     }
-    
+
     private func cleanURL(_ url: String) -> String {
         var cleanedURL = url.lowercased()
             .replacingOccurrences(of: "https://", with: "")
             .replacingOccurrences(of: "http://", with: "")
             .replacingOccurrences(of: "www.", with: "")
-        
+
         // Remove trailing slash if present
         if cleanedURL.last == "/" {
             cleanedURL.removeLast()
         }
-        
+
         return cleanedURL
     }
 }
@@ -345,16 +345,10 @@ struct PowerModeView: View {
             print("🔍 configurationMode changed to: \(String(describing: configurationMode))")
         }
     }
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 32) {
-                // Video CTA Section
-                VideoCTAView(
-                    url: "https://dub.sh/powermode",
-                    subtitle: "See Power Mode in action"
-                )
-                
                 // Power Mode Toggle Section
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
@@ -371,17 +365,17 @@ struct PowerModeView: View {
                     }
                 }
                 .padding(.horizontal)
-                
+
                 if powerModeManager.isPowerModeEnabled {
                     // Default Configuration Section
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Default Configuration")
                             .font(.headline)
-                        
+
                         ConfiguredAppRow(
                             config: powerModeManager.defaultConfig,
                             isEditing: configurationMode?.isEditingDefault ?? false,
-                            action: { 
+                            action: {
                                 configurationMode = .editDefault(powerModeManager.defaultConfig)
                                 showingConfigSheet = true
                             }
@@ -392,7 +386,7 @@ struct PowerModeView: View {
                             .stroke(Color.accentColor.opacity(0.2), lineWidth: 1))
                     }
                     .padding(.horizontal)
-                    
+
                     // Apps Section
                     VStack(spacing: 16) {
                         if powerModeManager.configurations.isEmpty {
@@ -405,10 +399,10 @@ struct PowerModeView: View {
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal)
-                            
+
                             ConfiguredAppsGrid(powerModeManager: powerModeManager)
-                            
-                            Button(action: { 
+
+                            Button(action: {
                                 print("🔍 Add button clicked - Setting config mode and showing sheet")
                                 configurationMode = .add
                                 print("🔍 Configuration mode set to: \(String(describing: configurationMode))")
@@ -435,9 +429,9 @@ struct PowerModeView: View {
             .padding(24)
         }
         .background(Color(NSColor.controlBackgroundColor))
-        .sheet(isPresented: $showingConfigSheet, onDismiss: { 
+        .sheet(isPresented: $showingConfigSheet, onDismiss: {
             print("🔍 Sheet dismissed - Clearing configuration mode")
-            configurationMode = nil 
+            configurationMode = nil
         }) {
             Group {
                 if let mode = configurationMode {
