@@ -31,9 +31,9 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
             UserDefaults.standard.set(recorderType, forKey: "RecorderType")
         }
     }
-    
+
     @Published var isVisualizerActive = false
-    
+
     @Published var isMiniRecorderVisible = false {
         didSet {
             if isMiniRecorderVisible {
@@ -43,21 +43,21 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
             }
         }
     }
-    
+
     var whisperContext: WhisperContext?
     let recorder = Recorder()
     var recordedFile: URL? = nil
     let whisperPrompt = WhisperPrompt()
-    
+
     let modelContext: ModelContext
-    
+
     private var modelUrl: URL? {
         let possibleURLs = [
             Bundle.main.url(forResource: "ggml-base.en", withExtension: "bin", subdirectory: "Models"),
             Bundle.main.url(forResource: "ggml-base.en", withExtension: "bin"),
             Bundle.main.bundleURL.appendingPathComponent("Models/ggml-base.en.bin")
         ]
-        
+
         for url in possibleURLs {
             if let url = url, FileManager.default.fileExists(atPath: url.path) {
                 return url
@@ -65,23 +65,22 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
         }
         return nil
     }
-    
+
     private enum LoadError: Error {
         case couldNotLocateModel
     }
-    
+
     let modelsDirectory: URL
     let recordingsDirectory: URL
     let enhancementService: AIEnhancementService?
-    var licenseViewModel: LicenseViewModel
     let logger = Logger(subsystem: "com.nishank.talkmax", category: "WhisperState")
     private var transcriptionStartTime: Date?
     var notchWindowManager: NotchWindowManager?
     var miniWindowManager: MiniWindowManager?
-    
+
     // For model progress tracking
     @Published var downloadProgress: [String: Double] = [:]
-    
+
     init(modelContext: ModelContext, enhancementService: AIEnhancementService? = nil) {
         self.modelContext = modelContext
         self.modelsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -91,21 +90,20 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
             .appendingPathComponent("com.nishank.TalkMax")
             .appendingPathComponent("Recordings")
         self.enhancementService = enhancementService
-        self.licenseViewModel = LicenseViewModel()
-        
+
         super.init()
-        
+
         setupNotifications()
         createModelsDirectoryIfNeeded()
         createRecordingsDirectoryIfNeeded()
         loadAvailableModels()
-        
+
         if let savedModelName = UserDefaults.standard.string(forKey: "CurrentModel"),
            let savedModel = availableModels.first(where: { $0.name == savedModelName }) {
             currentModel = savedModel
         }
     }
-    
+
     private func createRecordingsDirectoryIfNeeded() {
         do {
             try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true, attributes: nil)
@@ -113,18 +111,18 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
             messageLog += "Error creating recordings directory: \(error.localizedDescription)\n"
         }
     }
-    
+
     func toggleRecord() async {
         if isRecording {
             logger.notice("🛑 Stopping recording")
-            
+
             await MainActor.run {
                 isRecording = false
                 isVisualizerActive = false
             }
-            
+
             await recorder.stopRecording()
-            
+
             if let recordedFile {
                 let duration = Date().timeIntervalSince(transcriptionStartTime ?? Date())
                 if !shouldCancelRecording {
@@ -145,9 +143,9 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 }
                 return
             }
-            
+
             shouldCancelRecording = false
-            
+
             logger.notice("🎙️ Starting recording")
             requestRecordPermission { [self] granted in
                 if granted {
@@ -158,18 +156,18 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
                                 appropriateFor: nil,
                                 create: true)
                                 .appending(path: "output.wav")
-                            
+
                             self.recordedFile = file
                             self.transcriptionStartTime = Date()
-                            
+
                             await MainActor.run {
                                 self.isRecording = true
                                 self.isVisualizerActive = true
                             }
-                            
+
                             async let recordingTask = self.recorder.startRecording(toOutputFile: file, delegate: self)
                             async let windowConfigTask = ActiveWindowService.shared.applyConfigurationForCurrentApp()
-                            
+
                             async let modelLoadingTask: Void = {
                                 if let currentModel = await self.currentModel, await self.whisperContext == nil {
                                     logger.notice("🔄 Loading model in parallel with recording: \(currentModel.name)")
@@ -183,18 +181,18 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
                                     }
                                 }
                             }()
-                            
+
                             try await recordingTask
                             await windowConfigTask
-                            
+
                             if let enhancementService = self.enhancementService,
-                               enhancementService.isEnhancementEnabled && 
+                               enhancementService.isEnhancementEnabled &&
                                enhancementService.useScreenCaptureContext {
                                 await enhancementService.captureScreenContext()
                             }
-                            
+
                             await modelLoadingTask
-                            
+
                         } catch {
                             await MainActor.run {
                                 self.messageLog += "\(error.localizedDescription)\n"
@@ -209,7 +207,7 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
             }
         }
     }
-    
+
     private func requestRecordPermission(response: @escaping (Bool) -> Void) {
 #if os(macOS)
         response(true)
@@ -219,9 +217,9 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
         }
 #endif
     }
-    
+
     // MARK: AVAudioRecorderDelegate
-    
+
     nonisolated func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
         if let error {
             Task {
@@ -229,18 +227,18 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
             }
         }
     }
-    
+
     private func handleRecError(_ error: Error) {
         messageLog += "\(error.localizedDescription)\n"
         isRecording = false
     }
-    
+
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         Task {
             await onDidFinishRecording(success: flag)
         }
     }
-    
+
     private func onDidFinishRecording(success: Bool) {
         if !success {
             messageLog += "Recording did not finish successfully\n"
@@ -299,38 +297,38 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
 
             messageLog += "Reading wave samples...\n"
             let data = try readAudioSamples(url)
-            
+
             if shouldCancelRecording { return }
-            
+
             messageLog += "Transcribing data using \(currentModel.name) model...\n"
             messageLog += "Setting prompt: \(whisperPrompt.transcriptionPrompt)\n"
             await whisperContext.setPrompt(whisperPrompt.transcriptionPrompt)
-            
+
             if shouldCancelRecording { return }
-            
+
             await whisperContext.fullTranscribe(samples: data)
-            
+
             if shouldCancelRecording { return }
-            
+
             var text = await whisperContext.getTranscription()
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
             logger.notice("✅ Transcription completed successfully, length: \(text.count) characters")
-            
+
             if UserDefaults.standard.bool(forKey: "IsWordReplacementEnabled") {
                 text = WordReplacementService.shared.applyReplacements(to: text)
                 logger.notice("✅ Word replacements applied")
             }
-            
+
             if let enhancementService = enhancementService,
                enhancementService.isEnhancementEnabled,
                enhancementService.isConfigured {
                 do {
                     if shouldCancelRecording { return }
-                    
+
                     messageLog += "Enhancing transcription with AI...\n"
                     let enhancedText = try await enhancementService.enhance(text)
                     messageLog += "Enhancement completed.\n"
-                    
+
                     let newTranscription = Transcription(
                         text: text,
                         duration: duration,
@@ -339,7 +337,7 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
                     )
                     modelContext.insert(newTranscription)
                     try? modelContext.save()
-                    
+
                     text = enhancedText
                 } catch {
                     messageLog += "Enhancement failed: \(error.localizedDescription). Using original transcription.\n"
@@ -360,19 +358,11 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 modelContext.insert(newTranscription)
                 try? modelContext.save()
             }
-            
-            if case .trialExpired = licenseViewModel.licenseState {
-                text = """
-                    Your trial has expired. Upgrade to TalkMax Pro at trytalkmax.com/buy
-                    
-                    \(text)
-                    """
-            }
-            
+
             messageLog += "Done: \(text)\n"
-            
+
             SoundManager.shared.playStopSound()
-            
+
             if AXIsProcessTrusted() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     CursorPaster.pasteAtCursor(text)
@@ -380,7 +370,7 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
             } else {
                 messageLog += "Accessibility permissions not granted. Transcription not pasted automatically.\n"
             }
-            
+
             if isAutoCopyEnabled {
                 let success = ClipboardManager.copyToClipboard(text)
                 if success {
@@ -390,14 +380,14 @@ class WhisperState: NSObject, ObservableObject, AVAudioRecorderDelegate {
                     messageLog += "Failed to copy transcription to clipboard\n"
                 }
             }
-            
+
             await cleanupModelResources()
             await dismissMiniRecorder()
-            
+
         } catch {
             messageLog += "\(error.localizedDescription)\n"
             currentError = .transcriptionFailed
-            
+
             await cleanupModelResources()
             await dismissMiniRecorder()
         }
@@ -446,11 +436,11 @@ struct WhisperModel: Identifiable {
 
 private class TaskDelegate: NSObject, URLSessionTaskDelegate {
     private let continuation: CheckedContinuation<Void, Never>
-    
+
     init(_ continuation: CheckedContinuation<Void, Never>) {
         self.continuation = continuation
     }
-    
+
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         continuation.resume()
     }

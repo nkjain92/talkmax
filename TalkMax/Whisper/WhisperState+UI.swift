@@ -4,9 +4,9 @@ import os
 
 // MARK: - UI Management Extension
 extension WhisperState {
-    
+
     // MARK: - Recorder Panel Management
-    
+
     func showRecorderPanel() {
         logger.notice("📱 Showing \(self.recorderType) recorder")
         if recorderType == "notch" {
@@ -23,7 +23,7 @@ extension WhisperState {
             miniWindowManager?.show()
         }
     }
-    
+
     func hideRecorderPanel() {
         if recorderType == "notch" {
             notchWindowManager?.hide()
@@ -31,9 +31,9 @@ extension WhisperState {
             miniWindowManager?.hide()
         }
     }
-    
+
     // MARK: - Mini Recorder Management
-    
+
     func toggleMiniRecorder() async {
         if isMiniRecorderVisible {
             if isRecording {
@@ -43,25 +43,25 @@ extension WhisperState {
             }
         } else {
             SoundManager.shared.playStartSound()
-            
+
             await MainActor.run {
                 isMiniRecorderVisible = true
             }
-            
+
             await toggleRecord()
         }
     }
-    
+
     func dismissMiniRecorder() async {
         logger.notice("📱 Dismissing \(self.recorderType) recorder")
         shouldCancelRecording = true
-        
+
         if isRecording {
             await recorder.stopRecording()
         }
-        
+
         hideRecorderPanel()
-        
+
         await MainActor.run {
             isRecording = false
             isVisualizerActive = false
@@ -71,31 +71,26 @@ extension WhisperState {
             isMiniRecorderVisible = false
             shouldCancelRecording = false
         }
-        
+
         try? await Task.sleep(nanoseconds: 150_000_000)
         await cleanupModelResources()
     }
-    
+
     func cancelRecording() async {
         SoundManager.shared.playEscSound()
         shouldCancelRecording = true
         await dismissMiniRecorder()
     }
-    
+
     // MARK: - Notification Handling
-    
+
     func setupNotifications() {
         NotificationCenter.default.addObserver(self, selector: #selector(handleToggleMiniRecorder), name: .toggleMiniRecorder, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(handleLicenseStatusChanged), name: .licenseStatusChanged, object: nil)
     }
-    
+
     @objc public func handleToggleMiniRecorder() {
         Task {
             await toggleMiniRecorder()
         }
     }
-    
-    @objc func handleLicenseStatusChanged() {
-        self.licenseViewModel = LicenseViewModel()
-    }
-} 
+}
