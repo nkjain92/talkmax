@@ -260,47 +260,144 @@ struct SettingsSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(showWarning ? .red : .accentColor)
-                    .frame(width: 24, height: 24)
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 16) {
+                // Enhanced icon with glow effect
+                ZStack {
+                    // Background circle with gradient
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    showWarning ?
+                                        Color.red.opacity(0.2) :
+                                        Color.accentColor.opacity(0.25),
+                                    showWarning ?
+                                        Color.red.opacity(0.15) :
+                                        Color.accentColor.opacity(0.15)
+                                ]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 40, height: 40)
 
-                VStack(alignment: .leading, spacing: 2) {
+                    // Glow effect
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                gradient: Gradient(colors: [
+                                    (showWarning ? Color.red : Color.accentColor).opacity(0.3),
+                                    Color.clear
+                                ]),
+                                center: .center,
+                                startRadius: 1,
+                                endRadius: 20
+                            )
+                        )
+                        .frame(width: 40, height: 40)
+                        .blur(radius: 2.5)
+
+                    // Icon
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    showWarning ? Color.red : Color.accentColor,
+                                    showWarning ? Color.red.opacity(0.8) : Color.accentColor.opacity(0.8)
+                                ]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+
                     Text(subtitle)
-                        .font(.subheadline)
+                        .font(.system(size: 13, weight: .regular))
                         .foregroundColor(showWarning ? .red : .secondary)
+                        .opacity(0.9)
                 }
 
                 if showWarning {
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
+                        .font(.system(size: 16))
+                        .foregroundStyle(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.red,
+                                    Color.red.opacity(0.8)
+                                ]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                         .help("Permission required for TalkMax to function properly")
                 }
             }
 
             Divider()
-                .padding(.vertical, 4)
+                .padding(.vertical, 2)
 
             content
+                .padding(.horizontal, 4)
         }
-        .padding(16)
+        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.windowBackgroundColor))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                )
+            ZStack {
+                // Card background
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(NSColor.windowBackgroundColor))
+
+                // Subtle inner shadow at the top
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.07),
+                                Color.clear
+                            ]),
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    )
+            }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(showWarning ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(
+                    showWarning ?
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.red.opacity(0.3),
+                                Color.red.opacity(0.15)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ) :
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.1),
+                                Color.white.opacity(0.05)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(
+            color: Color.black.opacity(0.08),
+            radius: 10,
+            x: 0,
+            y: 4
         )
     }
 }

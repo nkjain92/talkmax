@@ -348,80 +348,94 @@ struct PowerModeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
+            VStack(spacing: 24) {
                 // Power Mode Toggle Section
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text("Enable Power Mode")
-                            .font(.headline)
-                        Spacer()
-                        Toggle("", isOn: $powerModeManager.isPowerModeEnabled)
-                            .toggleStyle(SwitchToggleStyle(tint: .blue))
-                            .labelsHidden()
-                            .scaleEffect(1.2)
-                            .onChange(of: powerModeManager.isPowerModeEnabled) { _ in
-                                powerModeManager.savePowerModeEnabled()
+                SettingsCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Enable Power Mode")
+                                    .font(.system(size: 15, weight: .semibold))
+                                Text("Automatically apply enhancement modes based on context")
+                                    .font(.system(size: 13, weight: .regular))
+                                    .foregroundColor(.secondary)
                             }
+
+                            Spacer()
+
+                            Toggle("", isOn: $powerModeManager.isPowerModeEnabled)
+                                .toggleStyle(ModernToggleStyle())
+                                .labelsHidden()
+                                .onChange(of: powerModeManager.isPowerModeEnabled) { _ in
+                                    powerModeManager.savePowerModeEnabled()
+                                }
+                        }
                     }
                 }
-                .padding(.horizontal)
 
                 if powerModeManager.isPowerModeEnabled {
                     // Default Configuration Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Default Configuration")
-                            .font(.headline)
+                    SettingsCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Default Configuration")
+                                .font(.system(size: 15, weight: .semibold))
 
-                        ConfiguredAppRow(
-                            config: powerModeManager.defaultConfig,
-                            isEditing: configurationMode?.isEditingDefault ?? false,
-                            action: {
-                                configurationMode = .editDefault(powerModeManager.defaultConfig)
-                                showingConfigSheet = true
-                            }
-                        )
-                        .background(RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(.windowBackgroundColor).opacity(0.4)))
-                        .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.accentColor.opacity(0.2), lineWidth: 1))
+                            ConfiguredAppRow(
+                                config: powerModeManager.defaultConfig,
+                                isEditing: configurationMode?.isEditingDefault ?? false,
+                                action: {
+                                    configurationMode = .editDefault(powerModeManager.defaultConfig)
+                                    showingConfigSheet = true
+                                }
+                            )
+                            .background(Color(.windowBackgroundColor).opacity(0.4))
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+                            )
+                        }
                     }
-                    .padding(.horizontal)
 
                     // Apps Section
-                    VStack(spacing: 16) {
-                        if powerModeManager.configurations.isEmpty {
-                            PowerModeEmptyStateView(
-                                showAddModal: $showingConfigSheet,
-                                configMode: $configurationMode
-                            )
-                        } else {
-                            Text("Power Mode Configurations")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal)
+                    SettingsCard {
+                        VStack(spacing: 16) {
+                            if powerModeManager.configurations.isEmpty {
+                                PowerModeEmptyStateView(
+                                    showAddModal: $showingConfigSheet,
+                                    configMode: $configurationMode
+                                )
+                            } else {
+                                Text("Power Mode Configurations")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                            ConfiguredAppsGrid(powerModeManager: powerModeManager)
+                                ConfiguredAppsGrid(powerModeManager: powerModeManager)
 
-                            Button(action: {
-                                print("🔍 Add button clicked - Setting config mode and showing sheet")
-                                configurationMode = .add
-                                print("🔍 Configuration mode set to: \(String(describing: configurationMode))")
-                                showingConfigSheet = true
-                                print("🔍 showingConfigSheet set to: \(showingConfigSheet)")
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 12, weight: .semibold))
-                                    Text("Add New Mode")
-                                        .font(.system(size: 13, weight: .medium))
+                                Button(action: {
+                                    print("🔍 Add button clicked - Setting config mode and showing sheet")
+                                    configurationMode = .add
+                                    print("🔍 Configuration mode set to: \(String(describing: configurationMode))")
+                                    showingConfigSheet = true
+                                    print("🔍 showingConfigSheet set to: \(showingConfigSheet)")
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 12, weight: .medium))
+                                        Text("Add New Mode")
+                                            .font(.system(size: 13, weight: .medium))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.accentColor)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
                                 }
+                                .buttonStyle(PlainButtonStyle())
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .help("Add a new mode")
+                                .padding(.top, 12)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.regular)
-                            .tint(Color(NSColor.controlAccentColor))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .help("Add a new mode")
-                            .padding(.top, 12)
                         }
                     }
                 }

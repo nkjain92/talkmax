@@ -3,19 +3,24 @@ import SwiftData
 
 @Model
 final class Transcription {
-    var id: UUID
+    let id: UUID
     var text: String
     var enhancedText: String?
     var timestamp: Date
     var duration: TimeInterval
     var audioFileURL: String?
-    
-    init(text: String, duration: TimeInterval, enhancedText: String? = nil, audioFileURL: String? = nil) {
-        self.id = UUID()
+
+    // Compute word count from text
+    var wordCount: Int {
+        return text.split(separator: " ").count
+    }
+
+    init(id: UUID = UUID(), text: String, timestamp: Date = Date(), duration: TimeInterval, enhancedText: String? = nil, audioFileURL: String? = nil) {
+        self.id = id
         self.text = text
-        self.enhancedText = enhancedText
-        self.timestamp = Date()
+        self.timestamp = timestamp
         self.duration = duration
+        self.enhancedText = enhancedText
         self.audioFileURL = audioFileURL
     }
 }
