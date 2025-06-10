@@ -2,6 +2,7 @@ import Foundation
 
 extension Notification.Name {
     static let languageDidChange = Notification.Name("languageDidChange")
+    static let promptDidChange = Notification.Name("promptDidChange")
 }
 
 @MainActor
@@ -10,6 +11,10 @@ class WhisperPrompt: ObservableObject {
     
     private var dictionaryWords: [String] = []
     private let saveKey = "CustomDictionaryItems"
+    private let customPromptsKey = "CustomLanguagePrompts"
+    
+    // Store user-customized prompts
+    private var customPrompts: [String: String] = [:]
     
     // Language-specific base prompts
     private let languagePrompts: [String: String] = [
@@ -24,6 +29,7 @@ class WhisperPrompt: ObservableObject {
         "zh": "你好，最近好吗？见到你很高兴。",
         "th": "สวัสดีครับ/ค่ะ, สบายดีไหม? ยินดีที่ได้พบคุณ",
         "vi": "Xin chào, bạn khỏe không? Rất vui được gặp bạn.",
+        "yue": "你好，最近點呀？見到你好開心。",
         
         // European Languages
         "es": "¡Hola, ¿cómo estás? Encantado de conocerte.",
@@ -49,11 +55,12 @@ class WhisperPrompt: ObservableObject {
         "ur": "السلام علیکم، کیسے ہیں آپ؟ آپ سے مل کر خوشی ہوئی۔",
         
         // Default prompt for unsupported languages
-        "default": "Hello, how are you? Nice to meet you."
+        "default": ""
     ]
     
     init() {
         loadDictionaryItems()
+        loadCustomPrompts()
         updateTranscriptionPrompt()
         
         // Setup notification observer
@@ -83,28 +90,62 @@ class WhisperPrompt: ObservableObject {
         }
     }
     
+    private func loadCustomPrompts() {
+        if let savedPrompts = UserDefaults.standard.dictionary(forKey: customPromptsKey) as? [String: String] {
+            customPrompts = savedPrompts
+        }
+    }
+    
+    private func saveCustomPrompts() {
+        UserDefaults.standard.set(customPrompts, forKey: customPromptsKey)
+        UserDefaults.standard.synchronize() // Force immediate synchronization
+    }
+    
     func updateDictionaryWords(_ words: [String]) {
         dictionaryWords = words
         updateTranscriptionPrompt()
     }
     
-    private func updateTranscriptionPrompt() {
+    func updateTranscriptionPrompt() {
         // Get the currently selected language from UserDefaults
         let selectedLanguage = UserDefaults.standard.string(forKey: "SelectedLanguage") ?? "en"
         
-        // Get the appropriate base prompt for the selected language
-        let basePrompt = languagePrompts[selectedLanguage] ?? languagePrompts["default"]!
+        // Get the prompt for the selected language (custom if available, otherwise default)
+        let basePrompt = getLanguagePrompt(for: selectedLanguage)
         
-        var prompt = basePrompt
-        var allWords = ["TalkMax"]
-        allWords.append(contentsOf: dictionaryWords)
+        // Always include TalkMax in the prompt
+        var prompt = basePrompt + "\nTalkMax, "
         
-        if !allWords.isEmpty {
-            prompt += "\nImportant words: " + allWords.joined(separator: ", ")
+        // Add dictionary words if available
+        if !dictionaryWords.isEmpty {
+            prompt += dictionaryWords.joined(separator: ", ")
         }
         
         transcriptionPrompt = prompt
         UserDefaults.standard.set(prompt, forKey: "TranscriptionPrompt")
+        UserDefaults.standard.synchronize() // Force immediate synchronization
+        
+        // Notify that the prompt has changed
+        NotificationCenter.default.post(name: .promptDidChange, object: nil)
+    }
+    
+    func getLanguagePrompt(for language: String) -> String {
+        // First check if there's a custom prompt for this language
+        if let customPrompt = customPrompts[language], !customPrompt.isEmpty {
+            return customPrompt
+        }
+        
+        // Otherwise return the default prompt
+        return languagePrompts[language] ?? languagePrompts["default"]!
+    }
+    
+    func setCustomPrompt(_ prompt: String, for language: String) {
+        customPrompts[language] = prompt
+        saveCustomPrompts()
+        updateTranscriptionPrompt()
+        
+        // Force update the UI
+        objectWillChange.send()
     }
     
     func saveDictionaryItems(_ items: [DictionaryItem]) async {

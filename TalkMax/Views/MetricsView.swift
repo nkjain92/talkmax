@@ -8,46 +8,64 @@ struct MetricsView: View {
     @Query(sort: \Transcription.timestamp) private var transcriptions: [Transcription]
     @EnvironmentObject private var whisperState: WhisperState
     @EnvironmentObject private var hotkeyManager: HotkeyManager
-    @Environment(\.colorScheme) private var colorScheme
+    @StateObject private var licenseViewModel = LicenseViewModel()
     @State private var hasLoadedData = false
     let skipSetupCheck: Bool
-
+    
     init(skipSetupCheck: Bool = false) {
         self.skipSetupCheck = skipSetupCheck
     }
-
+    
     var body: some View {
-        ZStack {
-            // Background gradient
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    colorScheme == .dark ?
-                        Color(hue: 0.6, saturation: 0.1, brightness: 0.15).opacity(0.8) :
-                        Color(hue: 0.6, saturation: 0.1, brightness: 0.95).opacity(0.8),
-                    colorScheme == .dark ?
-                        Color(hue: 0.7, saturation: 0.1, brightness: 0.18).opacity(0.8) :
-                        Color(hue: 0.7, saturation: 0.08, brightness: 0.98).opacity(0.8)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            // Content
-            if skipSetupCheck {
-                MetricsContent(transcriptions: Array(transcriptions))
-            } else if isSetupComplete {
-                MetricsContent(transcriptions: Array(transcriptions))
-            } else {
-                MetricsSetupView()
+        VStack {
+            // Trial Message
+            if case .trial(let daysRemaining) = licenseViewModel.licenseState {
+                TrialMessageView(
+                    message: "You have \(daysRemaining) days left in your trial",
+                    type: daysRemaining <= 2 ? .warning : .info,
+                    onAddLicenseKey: {
+                        // Post notification to navigate to TalkMax Pro tab
+                        NotificationCenter.default.post(
+                            name: .navigateToDestination,
+                            object: nil,
+                            userInfo: ["destination": "TalkMax Pro"]
+                        )
+                    }
+                )
+                .padding()
+            } else if case .trialExpired = licenseViewModel.licenseState {
+                TrialMessageView(
+                    message: "Your trial has expired. Upgrade to continue using TalkMax",
+                    type: .expired,
+                    onAddLicenseKey: {
+                        // Also allow navigation from expired state
+                        NotificationCenter.default.post(
+                            name: .navigateToDestination,
+                            object: nil,
+                            userInfo: ["destination": "TalkMax Pro"]
+                        )
+                    }
+                )
+                .padding()
+            }
+            
+            Group {
+                if skipSetupCheck {
+                    MetricsContent(transcriptions: Array(transcriptions))
+                } else if isSetupComplete {
+                    MetricsContent(transcriptions: Array(transcriptions))
+                } else {
+                    MetricsSetupView()
+                }
             }
         }
+        .background(Color(.controlBackgroundColor))
         .task {
             // Ensure the model context is ready
             hasLoadedData = true
         }
     }
-
+    
     private var isSetupComplete: Bool {
         hasLoadedData &&
         whisperState.currentModel != nil &&

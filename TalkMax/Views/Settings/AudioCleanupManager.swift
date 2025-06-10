@@ -6,7 +6,7 @@ import OSLog
 class AudioCleanupManager {
     static let shared = AudioCleanupManager()
     
-    private let logger = Logger(subsystem: "com.nishank.talkmax", category: "AudioCleanupManager")
+    private let logger = Logger(subsystem: "com.nishankjain.talkmax", category: "AudioCleanupManager")
     private var cleanupTimer: Timer?
     
     // Default cleanup settings

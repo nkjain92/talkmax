@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Sparkle
 import AppKit
 import OSLog
 
@@ -10,6 +11,7 @@ struct TalkMaxApp: App {
     
     @StateObject private var whisperState: WhisperState
     @StateObject private var hotkeyManager: HotkeyManager
+    @StateObject private var updaterViewModel: UpdaterViewModel
     @StateObject private var menuBarManager: MenuBarManager
     @StateObject private var aiService = AIService()
     @StateObject private var enhancementService: AIEnhancementService
@@ -27,7 +29,7 @@ struct TalkMaxApp: App {
             
             // Create app-specific Application Support directory URL
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("com.nishank.TalkMax", isDirectory: true)
+                .appendingPathComponent("com.nishankjain.TalkMax", isDirectory: true)
             
             // Create the directory if it doesn't exist
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
@@ -51,6 +53,9 @@ struct TalkMaxApp: App {
         let aiService = AIService()
         _aiService = StateObject(wrappedValue: aiService)
         
+        let updaterViewModel = UpdaterViewModel()
+        _updaterViewModel = StateObject(wrappedValue: updaterViewModel)
+        
         let enhancementService = AIEnhancementService(aiService: aiService, modelContext: container.mainContext)
         _enhancementService = StateObject(wrappedValue: enhancementService)
         
@@ -61,6 +66,7 @@ struct TalkMaxApp: App {
         _hotkeyManager = StateObject(wrappedValue: hotkeyManager)
         
         let menuBarManager = MenuBarManager(
+            updaterViewModel: updaterViewModel,
             whisperState: whisperState,
             container: container,
             enhancementService: enhancementService,
@@ -72,6 +78,7 @@ struct TalkMaxApp: App {
         // Configure ActiveWindowService with enhancementService
         let activeWindowService = ActiveWindowService.shared
         activeWindowService.configure(with: enhancementService)
+        activeWindowService.configureWhisperState(whisperState)
         _activeWindowService = StateObject(wrappedValue: activeWindowService)
     }
     
@@ -81,11 +88,15 @@ struct TalkMaxApp: App {
                 ContentView()
                     .environmentObject(whisperState)
                     .environmentObject(hotkeyManager)
+                    .environmentObject(updaterViewModel)
                     .environmentObject(menuBarManager)
                     .environmentObject(aiService)
                     .environmentObject(enhancementService)
                     .modelContainer(container)
                     .onAppear {
+                        updaterViewModel.silentlyCheckForUpdates()
+                        
+                        // Start the automatic audio cleanup process
                         audioCleanupManager.startAutomaticCleanup(modelContext: container.mainContext)
                     }
                     .background(WindowAccessor { window in
@@ -93,6 +104,8 @@ struct TalkMaxApp: App {
                     })
                     .onDisappear {
                         whisperState.unloadModel()
+                        
+                        // Stop the automatic audio cleanup process
                         audioCleanupManager.stopAutomaticCleanup()
                     }
             } else {
@@ -101,7 +114,20 @@ struct TalkMaxApp: App {
                     .environmentObject(whisperState)
                     .environmentObject(aiService)
                     .environmentObject(enhancementService)
-                    .frame(minWidth: 1200, minHeight: 800)
+                    .frame(minWidth: 880, minHeight: 780)
+                    .cornerRadius(16)
+                    .clipped()
+                    .background(WindowAccessor { window in
+                        // Ensure this is called only once or is idempotent
+                        if window.title != "TalkMax Onboarding" { // Prevent re-configuration
+                            WindowManager.shared.configureOnboardingPanel(window)
+                        }
+                    })
+            }
+        }
+        .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updaterViewModel: updaterViewModel)
             }
         }
         
@@ -110,6 +136,7 @@ struct TalkMaxApp: App {
                 .environmentObject(whisperState)
                 .environmentObject(hotkeyManager)
                 .environmentObject(menuBarManager)
+                .environmentObject(updaterViewModel)
                 .environmentObject(aiService)
                 .environmentObject(enhancementService)
         } label: {
@@ -134,6 +161,42 @@ struct TalkMaxApp: App {
     }
 }
 
+class UpdaterViewModel: ObservableObject {
+    private let updaterController: SPUStandardUpdaterController
+    
+    @Published var canCheckForUpdates = false
+    
+    init() {
+        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        
+        // Enable automatic update checking
+        updaterController.updater.automaticallyChecksForUpdates = true
+        updaterController.updater.updateCheckInterval = 24 * 60 * 60
+        
+        updaterController.updater.publisher(for: \.canCheckForUpdates)
+            .assign(to: &$canCheckForUpdates)
+    }
+    
+    func checkForUpdates() {
+        // This is for manual checks - will show UI
+        updaterController.checkForUpdates(nil)
+    }
+    
+    func silentlyCheckForUpdates() {
+        // This checks for updates in the background without showing UI unless an update is found
+        updaterController.updater.checkForUpdatesInBackground()
+    }
+}
+
+struct CheckForUpdatesView: View {
+    @ObservedObject var updaterViewModel: UpdaterViewModel
+    
+    var body: some View {
+        Button("Check for Updates…", action: updaterViewModel.checkForUpdates)
+            .disabled(!updaterViewModel.canCheckForUpdates)
+    }
+}
+
 struct WindowAccessor: NSViewRepresentable {
     let callback: (NSWindow) -> Void
     
@@ -149,3 +212,6 @@ struct WindowAccessor: NSViewRepresentable {
     
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
+
+
+

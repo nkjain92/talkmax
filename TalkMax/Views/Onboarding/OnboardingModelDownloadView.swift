@@ -9,7 +9,7 @@ struct OnboardingModelDownloadView: View {
     @State private var isModelSet = false
     @State private var showTutorial = false
     
-    private let turboModel = PredefinedModels.models.first { $0.name == "ggml-large-v3-turbo-q5_0" }!
+    private let turboModel = PredefinedModels.models.first { $0.name == "ggml-large-v3-turbo-q5_0" } as! LocalModel
     
     var body: some View {
         ZStack {
@@ -83,14 +83,10 @@ struct OnboardingModelDownloadView: View {
                         
                         // Download progress
                         if isDownloading {
-                            VStack(spacing: 8) {
-                                ProgressView(value: whisperState.downloadProgress[turboModel.name] ?? 0)
-                                    .progressViewStyle(.linear)
-                                    .tint(.white)
-                                Text("\(Int((whisperState.downloadProgress[turboModel.name] ?? 0) * 100))%")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
-                            }
+                            DownloadProgressView(
+                                modelName: turboModel.name,
+                                downloadProgress: whisperState.downloadProgress
+                            )
                             .transition(.opacity)
                         }
                     }

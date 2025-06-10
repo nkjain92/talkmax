@@ -33,9 +33,16 @@ struct AudioTranscribeView: View {
                         
                         if let enhancedText = transcription.enhancedText {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Enhanced")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                                HStack {
+                                    Text("Enhanced")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    HStack(spacing: 8) {
+                                        AnimatedCopyButton(textToCopy: enhancedText)
+                                        AnimatedSaveButton(textToSave: enhancedText)
+                                    }
+                                }
                                 Text(enhancedText)
                                     .textSelection(.enabled)
                             }
@@ -43,15 +50,34 @@ struct AudioTranscribeView: View {
                             Divider()
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Original")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                                HStack {
+                                    Text("Original")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    HStack(spacing: 8) {
+                                        AnimatedCopyButton(textToCopy: transcription.text)
+                                        AnimatedSaveButton(textToSave: transcription.text)
+                                    }
+                                }
                                 Text(transcription.text)
                                     .textSelection(.enabled)
                             }
                         } else {
-                            Text(transcription.text)
-                                .textSelection(.enabled)
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Transcription")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    HStack(spacing: 8) {
+                                        AnimatedCopyButton(textToCopy: transcription.text)
+                                        AnimatedSaveButton(textToSave: transcription.text)
+                                    }
+                                }
+                                Text(transcription.text)
+                                    .textSelection(.enabled)
+                            }
                         }
                         
                         HStack {
@@ -90,7 +116,7 @@ struct AudioTranscribeView: View {
                             HStack(spacing: 16) {
                                 Toggle("AI Enhancement", isOn: $isEnhancementEnabled)
                                     .toggleStyle(.switch)
-                                    .onChange(of: isEnhancementEnabled) { newValue in
+                                    .onChange(of: isEnhancementEnabled) { oldValue, newValue in
                                         enhancementService.isEnhancementEnabled = newValue
                                     }
                                 

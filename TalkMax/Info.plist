@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>LSUIElement</key>
+	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>TalkMax needs access to your microphone to record audio for transcription.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>TalkMax needs to interact with your browser to detect the current website for applying website-specific configurations.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>TalkMax needs screen recording access to understand context from your screen for improved transcription accuracy.</string>
 </dict>

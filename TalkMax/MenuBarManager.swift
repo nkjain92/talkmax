@@ -11,6 +11,7 @@ class MenuBarManager: ObservableObject {
         }
     }
     
+    private var updaterViewModel: UpdaterViewModel
     private var whisperState: WhisperState
     private var container: ModelContainer
     private var enhancementService: AIEnhancementService
@@ -18,12 +19,14 @@ class MenuBarManager: ObservableObject {
     private var hotkeyManager: HotkeyManager
     private var mainWindow: NSWindow?  // Store window reference
     
-    init(whisperState: WhisperState,
+    init(updaterViewModel: UpdaterViewModel, 
+         whisperState: WhisperState, 
          container: ModelContainer,
          enhancementService: AIEnhancementService,
          aiService: AIService,
          hotkeyManager: HotkeyManager) {
         self.isMenuBarOnly = UserDefaults.standard.bool(forKey: "IsMenuBarOnly")
+        self.updaterViewModel = updaterViewModel
         self.whisperState = whisperState
         self.container = container
         self.enhancementService = enhancementService
@@ -60,6 +63,12 @@ class MenuBarManager: ObservableObject {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            if self.isMenuBarOnly {
+                NSApp.setActivationPolicy(.accessory)
+            } else {
+                NSApp.setActivationPolicy(.regular)
+            }
             
             // Activate the app
             NSApp.activate(ignoringOtherApps: true)
@@ -100,6 +109,7 @@ class MenuBarManager: ObservableObject {
             .environmentObject(whisperState)
             .environmentObject(hotkeyManager)
             .environmentObject(self)
+            .environmentObject(updaterViewModel)
             .environmentObject(enhancementService)
             .environmentObject(aiService)
             .environment(\.modelContext, ModelContext(container))

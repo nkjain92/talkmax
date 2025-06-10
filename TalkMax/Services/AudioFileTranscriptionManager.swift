@@ -15,9 +15,12 @@ class AudioTranscriptionManager: ObservableObject {
     @Published var errorMessage: String?
     
     private var currentTask: Task<Void, Error>?
-    private var whisperContext: WhisperContext?
     private let audioProcessor = AudioProcessor()
-    private let logger = Logger(subsystem: "com.nishank.talkmax", category: "AudioTranscriptionManager")
+    private let logger = Logger(subsystem: "com.nishankjain.talkmax", category: "AudioTranscriptionManager")
+    
+    // Transcription services - will be initialized when needed
+    private var localTranscriptionService: LocalTranscriptionService?
+    private let cloudTranscriptionService = CloudTranscriptionService()
     
     enum ProcessingPhase {
         case idle
@@ -58,12 +61,14 @@ class AudioTranscriptionManager: ObservableObject {
         
         currentTask = Task {
             do {
-                guard let currentModel = whisperState.currentModel else {
+                guard let currentModel = whisperState.currentTranscriptionModel else {
                     throw TranscriptionError.noModelSelected
                 }
                 
-                // Load Whisper model
-                whisperContext = try await WhisperContext.createContext(path: currentModel.url.path)
+                // Initialize local transcription service if needed
+                if localTranscriptionService == nil {
+                    localTranscriptionService = LocalTranscriptionService(modelsDirectory: whisperState.modelsDirectory, whisperState: whisperState)
+                }
                 
                 // Process audio file
                 processingPhase = .processingAudio
@@ -71,31 +76,29 @@ class AudioTranscriptionManager: ObservableObject {
                 
                 // Get audio duration
                 let audioAsset = AVURLAsset(url: url)
-                var duration: TimeInterval = 0
-                
-                if #available(macOS 13.0, *) {
-                    let durationValue = try await audioAsset.load(.duration)
-                    duration = CMTimeGetSeconds(durationValue)
-                } else {
-                    duration = CMTimeGetSeconds(audioAsset.duration)
-                }
+                let duration = CMTimeGetSeconds(try await audioAsset.load(.duration))
                 
                 // Create permanent copy of the audio file
                 let recordingsDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                    .appendingPathComponent("com.nishank.TalkMax")
+                    .appendingPathComponent("com.nishankjain.TalkMax")
                     .appendingPathComponent("Recordings")
                 
                 let fileName = "transcribed_\(UUID().uuidString).wav"
                 let permanentURL = recordingsDirectory.appendingPathComponent(fileName)
                 
                 try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
-                try FileManager.default.copyItem(at: url, to: permanentURL)
+                try audioProcessor.saveSamplesAsWav(samples: samples, to: permanentURL)
                 
-                // Transcribe
+                // Transcribe using appropriate service
                 processingPhase = .transcribing
-                await whisperContext?.setPrompt(whisperState.whisperPrompt.transcriptionPrompt)
-                try await whisperContext?.fullTranscribe(samples: samples)
-                var text = await whisperContext?.getTranscription() ?? ""
+                var text: String
+                
+                if currentModel.provider == .local {
+                    text = try await localTranscriptionService!.transcribe(audioURL: permanentURL, model: currentModel)
+                } else {
+                    text = try await cloudTranscriptionService.transcribe(audioURL: permanentURL, model: currentModel)
+                }
+                
                 text = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 // Apply word replacements if enabled
@@ -121,7 +124,6 @@ class AudioTranscriptionManager: ObservableObject {
                         currentTranscription = transcription
                     } catch {
                         logger.error("Enhancement failed: \(error.localizedDescription)")
-                        messageLog += "Enhancement failed: \(error.localizedDescription). Using original transcription.\n"
                         let transcription = Transcription(
                             text: text,
                             duration: duration,
@@ -154,28 +156,20 @@ class AudioTranscriptionManager: ObservableObject {
     
     func cancelProcessing() {
         currentTask?.cancel()
-        cleanupResources()
     }
     
     private func finishProcessing() {
         isProcessing = false
         processingPhase = .idle
         currentTask = nil
-        cleanupResources()
     }
     
     private func handleError(_ error: Error) {
         logger.error("Transcription error: \(error.localizedDescription)")
         errorMessage = error.localizedDescription
-        messageLog += "Error: \(error.localizedDescription)\n"
         isProcessing = false
         processingPhase = .idle
         currentTask = nil
-        cleanupResources()
-    }
-    
-    private func cleanupResources() {
-        whisperContext = nil
     }
 }
 
