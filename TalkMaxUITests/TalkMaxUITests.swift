@@ -2,7 +2,7 @@
 //  TalkMaxUITests.swift
 //  TalkMaxUITests
 //
-//  Created by Nishank Jain on 23rd March 2025
+//  Created by Prakash Joshi on 15/10/2024.
 //
 
 import XCTest

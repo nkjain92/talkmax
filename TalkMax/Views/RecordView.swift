@@ -29,36 +29,14 @@ struct RecordView: View {
     
     private var heroSection: some View {
         VStack(spacing: 20) {
-            appIconView
+            AppIconView()
             titleSection
-        }
-    }
-    
-    private var appIconView: some View {
-        ZStack {
-            Circle()
-                .fill(Color.accentColor.opacity(0.15))
-                .frame(width: 160, height: 160)
-                .blur(radius: 30)
-            
-            if let image = NSImage(named: "AppIcon") {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 120, height: 120)
-                    .cornerRadius(30)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
-                    )
-                    .shadow(color: .accentColor.opacity(0.3), radius: 20)
-            }
         }
     }
     
     private var titleSection: some View {
         VStack(spacing: 8) {
-            Text("TALKMAX")
+            Text("VOICEINK")
                 .font(.system(size: 42, weight: .bold))
             
             if whisperState.currentModel != nil {
@@ -113,16 +91,16 @@ struct RecordView: View {
                     }
                     .toggleStyle(.switch)
                     
-                    Toggle(isOn: $mediaController.isMediaPauseEnabled) {
+                    Toggle(isOn: $mediaController.isSystemMuteEnabled) {
                         HStack {
-                            Image(systemName: "play.slash")
+                            Image(systemName: "speaker.slash")
                                 .foregroundColor(.secondary)
-                            Text("Pause media during recording")
+                            Text("Mute system audio during recording")
                                 .font(.subheadline.weight(.medium))
                         }
                     }
                     .toggleStyle(.switch)
-                    .help("Automatically pause music playback when recording starts and resume when recording stops")
+                    .help("Automatically mute system audio when recording starts and restore when recording stops")
                 }
             }
         }
@@ -159,30 +137,42 @@ struct RecordView: View {
     
     private var pushToTalkSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle(isOn: $hotkeyManager.isPushToTalkEnabled) {
+            HStack {
                 Text("Push-to-Talk")
                     .font(.subheadline.weight(.medium))
-            }
-            .toggleStyle(.switch)
-            
-            if hotkeyManager.isPushToTalkEnabled {
-                pushToTalkOptions
+                
+                if hotkeyManager.isPushToTalkEnabled {
+                    SelectableKeyCapView(
+                        text: getKeySymbol(for: hotkeyManager.pushToTalkKey),
+                        subtext: getKeyText(for: hotkeyManager.pushToTalkKey),
+                        isSelected: true
+                    )
+                }
             }
         }
     }
     
-    private var pushToTalkOptions: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            PushToTalkKeySelector(selectedKey: $hotkeyManager.pushToTalkKey)
-            
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.left.arrow.right.circle.fill")
-                    .foregroundColor(.secondary)
-                    .font(.system(size: 12))
-                Text("Click to switch")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+    private func getKeySymbol(for key: HotkeyManager.PushToTalkKey) -> String {
+        switch key {
+        case .rightOption: return "⌥"
+        case .leftOption: return "⌥"
+        case .leftControl: return "⌃"
+        case .rightControl: return "⌃"
+        case .fn: return "Fn"
+        case .rightCommand: return "⌘"
+        case .rightShift: return "⇧"
+        }
+    }
+    
+    private func getKeyText(for key: HotkeyManager.PushToTalkKey) -> String {
+        switch key {
+        case .rightOption: return "Right Option"
+        case .leftOption: return "Left Option"
+        case .leftControl: return "Left Control"
+        case .rightControl: return "Right Control"
+        case .fn: return "Function"
+        case .rightCommand: return "Right Command"
+        case .rightShift: return "Right Shift"
         }
     }
     
@@ -216,7 +206,9 @@ struct RecordView: View {
                 .font(.headline)
             
             VStack(alignment: .leading, spacing: 12) {
-                InfoRow(icon: "doc.on.clipboard", text: "Copied to clipboard")
+                if whisperState.isAutoCopyEnabled {
+                    InfoRow(icon: "doc.on.clipboard", text: "Copied to clipboard")
+                }
                 InfoRow(icon: "text.cursor", text: "Pasted at cursor position")
             }
         }
@@ -227,6 +219,12 @@ struct RecordView: View {
         switch hotkeyManager.pushToTalkKey {
         case .rightOption:
             keyName = "right Option (⌥)"
+        case .leftOption:
+            keyName = "left Option (⌥)"
+        case .leftControl:
+            keyName = "left Control (⌃)"
+        case .rightControl:
+            keyName = "right Control (⌃)"
         case .fn:
             keyName = "Fn"
         case .rightCommand:

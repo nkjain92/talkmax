@@ -16,7 +16,7 @@ actor WhisperContext {
     private var languageCString: [CChar]?
     private var prompt: String?
     private var promptCString: [CChar]?
-    private let logger = Logger(subsystem: "com.nishank.talkmax", category: "WhisperContext")
+    private let logger = Logger(subsystem: "com.nishankjain.talkmax", category: "WhisperContext")
 
     private init() {
         // Private initializer without context
@@ -53,7 +53,6 @@ actor WhisperContext {
             logger.notice("🌐 Using auto language detection")
         }
         
-        // Use prompt for all languages
         if prompt != nil {
             promptCString = Array(prompt!.utf8CString)
             params.initial_prompt = promptCString?.withUnsafeBufferPointer { ptr in
@@ -65,7 +64,6 @@ actor WhisperContext {
             params.initial_prompt = nil
         }
         
-        // Adapted from whisper.objc
         params.print_realtime   = true
         params.print_progress   = false
         params.print_timestamps = true
@@ -73,12 +71,8 @@ actor WhisperContext {
         params.translate        = false
         params.n_threads        = Int32(maxThreads)
         params.offset_ms        = 0
-        params.no_context       = false
+        params.no_context       = true
         params.single_segment   = false
-        
-        // Adjusted parameters to reduce hallucination
-        params.suppress_blank   = true      // Keep suppressing blank outputs
-        params.suppress_nst     = true      // Additional suppression of non-speech tokens
 
         whisper_reset_timings(context)
         logger.notice("⚙️ Starting whisper transcription")
@@ -90,7 +84,7 @@ actor WhisperContext {
                 let langId = whisper_full_lang_id(context)
                 let detectedLang = String(cString: whisper_lang_str(langId))
                 logger.notice("✅ Transcription completed - Language: \(detectedLang)")
-                whisper_print_timings(context)
+                
             }
         }
         
@@ -104,7 +98,10 @@ actor WhisperContext {
         for i in 0..<whisper_full_n_segments(context) {
             transcription += String(cString: whisper_full_get_segment_text(context, i))
         }
-        return transcription
+        // Apply hallucination filtering
+        let filteredTranscription = WhisperHallucinationFilter.filter(transcription)
+
+        return filteredTranscription
     }
 
     static func createContext(path: String) async throws -> WhisperContext {

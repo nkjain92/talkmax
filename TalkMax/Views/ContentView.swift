@@ -15,8 +15,8 @@ enum ViewType: String, CaseIterable {
     case audioInput = "Audio Input"
     case dictionary = "Dictionary"
     case settings = "Settings"
-    case about = "About"
-
+    case license = "TalkMax Pro"
+    
     var icon: String {
         switch self {
         case .metrics: return "gauge.medium"
@@ -30,7 +30,7 @@ enum ViewType: String, CaseIterable {
         case .audioInput: return "mic.fill"
         case .dictionary: return "character.book.closed.fill"
         case .settings: return "gearshape.fill"
-        case .about: return "info.circle.fill"
+        case .license: return "checkmark.seal.fill"
         }
     }
 }
@@ -38,7 +38,7 @@ enum ViewType: String, CaseIterable {
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let blendingMode: NSVisualEffectView.BlendingMode
-
+    
     func makeNSView(context: Context) -> NSVisualEffectView {
         let visualEffectView = NSVisualEffectView()
         visualEffectView.material = material
@@ -46,7 +46,7 @@ struct VisualEffectView: NSViewRepresentable {
         visualEffectView.state = .active
         return visualEffectView
     }
-
+    
     func updateNSView(_ visualEffectView: NSVisualEffectView, context: Context) {
         visualEffectView.material = material
         visualEffectView.blendingMode = blendingMode
@@ -57,12 +57,13 @@ struct DynamicSidebar: View {
     @Binding var selectedView: ViewType
     @Binding var hoveredView: ViewType?
     @Environment(\.colorScheme) private var colorScheme
+    @StateObject private var licenseViewModel = LicenseViewModel()
     @Namespace private var buttonAnimation
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 15) {
             // App Header
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 if let appIcon = NSImage(named: "AppIcon") {
                     Image(nsImage: appIcon)
                         .resizable()
@@ -70,50 +71,27 @@ struct DynamicSidebar: View {
                         .frame(width: 28, height: 28)
                         .cornerRadius(8)
                 }
-
+                
                 Text("TalkMax")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(colorScheme == .dark ? .white : .black)
-
+                    .font(.system(size: 14, weight: .semibold))
+                
+                if case .licensed = licenseViewModel.licenseState {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.blue)
+                        .cornerRadius(4)
+                }
+                
                 Spacer()
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
-            .padding(.bottom, 28)
-
-            // Categories sections
-            VStack(alignment: .leading, spacing: 24) {
-                // Lists section
-                sidebarSection(title: "", items: [.metrics, .history])
-
-                // Creation section
-                sidebarSection(title: "Creation", items: [.record, .transcribeAudio])
-
-                // AI & Power section
-                sidebarSection(title: "AI & Power", items: [.models, .enhancement, .powerMode])
-
-                // Settings section
-                sidebarSection(title: "Settings", items: [.permissions, .audioInput, .dictionary, .settings, .about])
-            }
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.bottom, 20)
-    }
-
-    @ViewBuilder
-    private func sidebarSection(title: String, items: [ViewType]) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if !title.isEmpty {
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 6)
-            }
-
-            ForEach(items, id: \.self) { viewType in
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            // Navigation Items
+            ForEach(ViewType.allCases, id: \.self) { viewType in
                 DynamicSidebarButton(
                     title: viewType.rawValue,
                     systemImage: viewType.icon,
@@ -121,16 +99,16 @@ struct DynamicSidebar: View {
                     isHovered: hoveredView == viewType,
                     namespace: buttonAnimation
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selectedView = viewType
-                    }
+                    selectedView = viewType
                 }
                 .onHover { isHovered in
                     hoveredView = isHovered ? viewType : nil
                 }
             }
+            
+            Spacer()
         }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -141,71 +119,40 @@ struct DynamicSidebarButton: View {
     let isHovered: Bool
     let namespace: Namespace.ID
     let action: () -> Void
-
+    
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
-                // Icon
+            HStack(spacing: 12) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: isSelected ? .medium : .regular))
-                    .foregroundColor(isSelected ? (colorScheme == .dark ? .white : .black) : .secondary)
-                    .frame(width: 20)
-
-                // Title
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 24, height: 24)
+                
                 Text(title)
-                    .font(.system(size: 14, weight: isSelected ? .medium : .regular))
-                    .foregroundColor(isSelected ? (colorScheme == .dark ? .white : .black) : .secondary)
-
+                    .font(.system(size: 14, weight: .medium))
+                    .lineLimit(1)
                 Spacer()
-
-                // Count badge
-                if let count = getCount(for: title), count > 0 {
-                    Text("\(count)")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(isSelected ? .white : .secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule()
-                                .fill(isSelected ?
-                                      Color.accentColor.opacity(0.9) :
-                                      Color.secondary.opacity(0.15))
-                        )
-                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .foregroundColor(isSelected ? .white : (isHovered ? .accentColor : .primary))
+            .frame(height: 40)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 16)
             .background(
                 ZStack {
                     if isSelected {
-                        Capsule()
-                            .fill(colorScheme == .dark ?
-                                  Color.accentColor.opacity(0.2) :
-                                  Color.accentColor.opacity(0.1))
-                            .matchedGeometryEffect(id: "background", in: namespace)
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accentColor)
+                            .shadow(color: Color.accentColor.opacity(0.5), radius: 5, x: 0, y: 2)
                     } else if isHovered {
-                        Capsule()
-                            .fill(colorScheme == .dark ?
-                                  Color.white.opacity(0.07) :
-                                  Color.black.opacity(0.03))
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05))
                     }
                 }
-                .padding(.horizontal, 10)
             )
+            .padding(.horizontal, 8)
         }
         .buttonStyle(PlainButtonStyle())
-    }
-
-    private func getCount(for title: String) -> Int? {
-        // Placeholder for now - we'll add real counts later
-        switch title {
-        case "Dashboard": return 12
-        case "History": return 6
-        case "Record Audio", "Power Mode": return 2
-        default: return nil
-        }
     }
 }
 
@@ -218,7 +165,8 @@ struct ContentView: View {
     @State private var hoveredView: ViewType?
     @State private var hasLoadedData = false
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-
+    @StateObject private var licenseViewModel = LicenseViewModel()
+    
     private var isSetupComplete: Bool {
         hasLoadedData &&
         whisperState.currentModel != nil &&
@@ -228,73 +176,21 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack {
-            // App background - soft gradient
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    colorScheme == .dark ?
-                        Color(hue: 0.6, saturation: 0.1, brightness: 0.15) :
-                        Color(hue: 0.6, saturation: 0.1, brightness: 0.95),
-                    colorScheme == .dark ?
-                        Color(hue: 0.7, saturation: 0.1, brightness: 0.18) :
-                        Color(hue: 0.7, saturation: 0.08, brightness: 0.98)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+        NavigationSplitView {
+            DynamicSidebar(
+                selectedView: $selectedView,
+                hoveredView: $hoveredView
             )
-            .ignoresSafeArea()
-
-            // Main app container
-            HStack(spacing: 0) {
-                // Sidebar with elevated design
-                ZStack {
-                    // Sidebar background with shadow for floating effect
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(colorScheme == .dark ?
-                              Color(white: 0.17) :
-                              Color(white: 0.97))
-                        .shadow(
-                            color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.1),
-                            radius: 15,
-                            x: 5,
-                            y: 0
-                        )
-
-                    // Sidebar content
-                    DynamicSidebar(
-                        selectedView: $selectedView,
-                        hoveredView: $hoveredView
-                    )
-                }
-                .frame(width: 240)
-                .padding(.leading, 20)
-                .padding(.vertical, 20)
-
-                // Main content area with floating design
-                ZStack {
-                    // Main content background
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(colorScheme == .dark ?
-                              Color(white: 0.17) :
-                              Color.white)
-                        .shadow(
-                            color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.1),
-                            radius: 15,
-                            x: 0,
-                            y: 0
-                        )
-
-                    // Detail view content
-                    detailView
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(20)
-                }
-                .padding(.trailing, 20)
-                .padding(.vertical, 20)
-                .padding(.leading, 10)
-            }
+            .frame(width: 200)
+            .navigationSplitViewColumnWidth(200)
+        } detail: {
+            detailView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .toolbar(.hidden, for: .automatic)
+                .navigationTitle("")
         }
-        .frame(minWidth: 1200, minHeight: 750)
+        .navigationSplitViewStyle(.balanced)
+        .frame(minWidth: 940, minHeight: 730)
         .onAppear {
             hasLoadedData = true
         }
@@ -309,6 +205,9 @@ struct ContentView: View {
                 case "AI Models":
                     print("ContentView: Navigating to AI Models")
                     selectedView = .models
+                case "TalkMax Pro":
+                    print("ContentView: Navigating to TalkMax Pro")
+                    selectedView = .license
                 case "History":
                     print("ContentView: Navigating to History")
                     selectedView = .history
@@ -327,7 +226,7 @@ struct ContentView: View {
             }
         }
     }
-
+    
     @ViewBuilder
     private var detailView: some View {
         switch selectedView {
@@ -356,8 +255,8 @@ struct ContentView: View {
         case .settings:
             SettingsView()
                 .environmentObject(whisperState)
-        case .about:
-            AboutView()
+        case .license:
+            LicenseManagementView()
         case .permissions:
             PermissionsView()
         }

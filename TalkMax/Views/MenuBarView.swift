@@ -5,10 +5,12 @@ struct MenuBarView: View {
     @EnvironmentObject var whisperState: WhisperState
     @EnvironmentObject var hotkeyManager: HotkeyManager
     @EnvironmentObject var menuBarManager: MenuBarManager
+    @EnvironmentObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var aiService: AIService
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     @State private var menuRefreshTrigger = false  // Added to force menu updates
+    @State private var isHovered = false
     
     var body: some View {
         VStack {
@@ -19,6 +21,31 @@ struct MenuBarView: View {
             }
             
             Toggle("AI Enhancement", isOn: $enhancementService.isEnhancementEnabled)
+            
+            Menu {
+                ForEach(enhancementService.allPrompts) { prompt in
+                    Button {
+                        enhancementService.setActivePrompt(prompt)
+                    } label: {
+                        HStack {
+                            Image(systemName: prompt.icon.rawValue)
+                                .foregroundColor(.accentColor)
+                            Text(prompt.title)
+                            if enhancementService.selectedPromptId == prompt.id {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("Prompt: \(enhancementService.activePrompt?.title ?? "None")")
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10))
+                }
+            }
+            .disabled(!enhancementService.isEnhancementEnabled)
             
             Menu {
                 ForEach(aiService.connectedProviders, id: \.self) { provider in
@@ -53,24 +80,19 @@ struct MenuBarView: View {
             }
             
             Menu {
-                ForEach(whisperState.availableModels) { model in
+                ForEach(whisperState.usableModels, id: \.id) { model in
                     Button {
                         Task {
-                            await whisperState.setDefaultModel(model)
+                            await whisperState.setDefaultTranscriptionModel(model)
                         }
                     } label: {
                         HStack {
-                            Text(PredefinedModels.models.first { $0.name == model.name }?.displayName ?? model.name)
-                            if whisperState.currentModel?.name == model.name {
+                            Text(model.displayName)
+                            if whisperState.currentTranscriptionModel?.id == model.id {
                                 Image(systemName: "checkmark")
                             }
                         }
                     }
-                }
-                
-                if whisperState.availableModels.isEmpty {
-                    Text("No models downloaded")
-                        .foregroundColor(.secondary)
                 }
                 
                 Divider()
@@ -80,13 +102,13 @@ struct MenuBarView: View {
                 }
             } label: {
                 HStack {
-                    Text("Model: \(PredefinedModels.models.first { $0.name == whisperState.currentModel?.name }?.displayName ?? "None")")
+                    Text("Model: \(whisperState.currentTranscriptionModel?.displayName ?? "None")")
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 10))
                 }
             }
             
-            LanguageSelectionView(whisperState: whisperState, displayMode: .menuItem)
+            LanguageSelectionView(whisperState: whisperState, displayMode: .menuItem, whisperPrompt: whisperState.whisperPrompt)
             
             Toggle("Use Clipboard Context", isOn: $enhancementService.useClipboardContext)
                 .disabled(!enhancementService.isEnhancementEnabled)
@@ -121,13 +143,13 @@ struct MenuBarView: View {
                 }
                 
                 Button {
-                    MediaController.shared.isMediaPauseEnabled.toggle()
+                    MediaController.shared.isSystemMuteEnabled.toggle()
                     menuRefreshTrigger.toggle()
                 } label: {
                     HStack {
-                        Text("Pause Media During Recording")
+                        Text("Mute System Audio During Recording")
                         Spacer()
-                        if MediaController.shared.isMediaPauseEnabled {
+                        if MediaController.shared.isSystemMuteEnabled {
                             Image(systemName: "checkmark")
                         }
                     }
@@ -150,20 +172,19 @@ struct MenuBarView: View {
             }
             
             Toggle("Launch at Login", isOn: $launchAtLoginEnabled)
-                .onChange(of: launchAtLoginEnabled) { newValue in
+                .onChange(of: launchAtLoginEnabled) { oldValue, newValue in
                     LaunchAtLogin.isEnabled = newValue
                 }
             
             Divider()
             
-            
-            Button("About TalkMax") {
-                NSApplication.shared.orderFrontStandardAboutPanel(nil)
-                NSApp.activate(ignoringOtherApps: true)
+            Button("Check for Updates") {
+                updaterViewModel.checkForUpdates()
             }
+            .disabled(!updaterViewModel.canCheckForUpdates)
             
             Button("Help and Support") {
-                openMailForSupport()
+                EmailSupport.openSupportEmail()
             }
             
             Divider()
@@ -172,12 +193,5 @@ struct MenuBarView: View {
                 NSApplication.shared.terminate(nil)
             }
         }
-    }
-    
-    private func openMailForSupport() {
-        let subject = "TalkMax Help & Support"
-        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let mailtoURL = URL(string: "mailto:nishank@gmail.com?subject=\(encodedSubject)")!
-        NSWorkspace.shared.open(mailtoURL)
     }
 }

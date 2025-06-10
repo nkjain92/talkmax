@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 enum AIProvider: String, CaseIterable {
     case groq = "GROQ"
@@ -6,7 +7,9 @@ enum AIProvider: String, CaseIterable {
     case deepSeek = "DeepSeek"
     case gemini = "Gemini"
     case anthropic = "Anthropic"
+    case mistral = "Mistral"
     case ollama = "Ollama"
+    case elevenLabs = "ElevenLabs"
     case custom = "Custom"
     
     var baseURL: String {
@@ -18,9 +21,13 @@ enum AIProvider: String, CaseIterable {
         case .deepSeek:
             return "https://api.deepseek.com/v1/chat/completions"
         case .gemini:
-            return "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+            return "https://generativelanguage.googleapis.com/v1beta/models"
         case .anthropic:
             return "https://api.anthropic.com/v1/messages"
+        case .mistral:
+            return "https://api.mistral.ai/v1/chat/completions"
+        case .elevenLabs:
+            return "https://api.elevenlabs.io/v1/speech-to-text"
         case .ollama:
             return UserDefaults.standard.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
         case .custom:
@@ -33,17 +40,65 @@ enum AIProvider: String, CaseIterable {
         case .groq:
             return "llama-3.3-70b-versatile"
         case .openAI:
-            return "gpt-4o-mini-2024-07-18"
+            return "gpt-4.1-mini"
         case .deepSeek:
             return "deepseek-chat"
         case .gemini:
             return "gemini-2.0-flash"
         case .anthropic:
             return "claude-3-5-sonnet-20241022"
+        case .mistral:
+            return "mistral-large-latest"
+        case .elevenLabs:
+            return "scribe_v1"
         case .ollama:
             return UserDefaults.standard.string(forKey: "ollamaSelectedModel") ?? "mistral"
         case .custom:
             return UserDefaults.standard.string(forKey: "customProviderModel") ?? ""
+        }
+    }
+    
+    var availableModels: [String] {
+        switch self {
+        case .groq:
+            return [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant"
+            ]
+        case .openAI:
+            return [
+                "gpt-4.1",
+                "gpt-4.1-mini"
+            ]
+        case .deepSeek:
+            return [
+                "deepseek-chat",
+                "deepseek-reasoner"
+            ]
+        case .gemini:
+            return [
+                "gemini-2.5-flash-preview-04-17",
+                "gemini-2.0-flash",
+                "gemini-2.0-flash-lite"
+            ]
+        case .anthropic:
+            return [
+                "claude-3-7-sonnet-latest",
+                "claude-3-5-haiku-latest",
+                "claude-3-5-sonnet-latest"
+            ]
+        case .mistral:
+            return [
+                "mistral-large-latest",
+                "mistral-small-latest",
+                "mistral-saba-latest"
+            ]
+        case .elevenLabs:
+            return ["scribe_v1", "scribe_v1_experimental"]
+        case .ollama:
+            return []
+        case .custom:
+            return []
         }
     }
     
@@ -58,6 +113,8 @@ enum AIProvider: String, CaseIterable {
 }
 
 class AIService: ObservableObject {
+    private let logger = Logger(subsystem: "com.nishankjain.talkmax", category: "AIService")
+    
     @Published var apiKey: String = ""
     @Published var isAPIKeyValid: Bool = false
     @Published var customBaseURL: String = UserDefaults.standard.string(forKey: "customProviderBaseURL") ?? "" {
@@ -73,7 +130,6 @@ class AIService: ObservableObject {
     @Published var selectedProvider: AIProvider {
         didSet {
             userDefaults.set(selectedProvider.rawValue, forKey: "selectedAIProvider")
-            // Load API key for the selected provider if it requires one
             if selectedProvider.requiresAPIKey {
                 if let savedKey = userDefaults.string(forKey: "\(selectedProvider.rawValue)APIKey") {
                     self.apiKey = savedKey
@@ -83,10 +139,8 @@ class AIService: ObservableObject {
                     self.isAPIKeyValid = false
                 }
             } else {
-                // For providers that don't require API key (like Ollama)
                 self.apiKey = ""
                 self.isAPIKeyValid = true
-                // Check Ollama connection
                 if selectedProvider == .ollama {
                     Task {
                         await ollamaService.checkConnection()
@@ -97,6 +151,7 @@ class AIService: ObservableObject {
         }
     }
     
+    @Published private var selectedModels: [AIProvider: String] = [:]
     private let userDefaults = UserDefaults.standard
     private let ollamaService = OllamaService()
     
@@ -111,25 +166,37 @@ class AIService: ObservableObject {
         }
     }
     
+    var currentModel: String {
+        if let selectedModel = selectedModels[selectedProvider],
+           !selectedModel.isEmpty,
+           (selectedProvider == .ollama && !selectedModel.isEmpty) || availableModels.contains(selectedModel) {
+            return selectedModel
+        }
+        return selectedProvider.defaultModel
+    }
+    
+    var availableModels: [String] {
+        if selectedProvider == .ollama {
+            return ollamaService.availableModels.map { $0.name }
+        }
+        return selectedProvider.availableModels
+    }
+    
     init() {
-        // Load selected provider
         if let savedProvider = userDefaults.string(forKey: "selectedAIProvider"),
            let provider = AIProvider(rawValue: savedProvider) {
             self.selectedProvider = provider
         } else {
-            self.selectedProvider = .gemini // Default to Gemini
+            self.selectedProvider = .gemini
         }
         
-        // Load API key for the current provider if it requires one
         if selectedProvider.requiresAPIKey {
             if let savedKey = userDefaults.string(forKey: "\(selectedProvider.rawValue)APIKey") {
                 self.apiKey = savedKey
                 self.isAPIKeyValid = true
             }
         } else {
-            // For providers that don't require API key
             self.isAPIKeyValid = true
-            // Check Ollama connection if it's the selected provider
             if selectedProvider == .ollama {
                 Task {
                     await ollamaService.checkConnection()
@@ -137,29 +204,48 @@ class AIService: ObservableObject {
                 }
             }
         }
+        
+        loadSavedModelSelections()
+    }
+    
+    private func loadSavedModelSelections() {
+        for provider in AIProvider.allCases {
+            let key = "\(provider.rawValue)SelectedModel"
+            if let savedModel = userDefaults.string(forKey: key), !savedModel.isEmpty {
+                selectedModels[provider] = savedModel
+            }
+        }
+    }
+    
+    func selectModel(_ model: String) {
+        guard !model.isEmpty else { return }
+        
+        selectedModels[selectedProvider] = model
+        let key = "\(selectedProvider.rawValue)SelectedModel"
+        userDefaults.set(model, forKey: key)
+        
+        if selectedProvider == .ollama {
+            updateSelectedOllamaModel(model)
+        }
+        
+        objectWillChange.send()
     }
     
     func saveAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        // Skip verification for providers that don't require API key
         guard selectedProvider.requiresAPIKey else {
-            print("📝 [\(selectedProvider.rawValue)] API key not required, skipping verification")
             completion(true)
             return
         }
         
-        print("🔑 [\(selectedProvider.rawValue)] Starting API key verification...")
-        // Verify the API key before saving
         verifyAPIKey(key) { [weak self] isValid in
             guard let self = self else { return }
             DispatchQueue.main.async {
                 if isValid {
-                    print("✅ [\(self.selectedProvider.rawValue)] API key verified successfully")
                     self.apiKey = key
                     self.isAPIKeyValid = true
                     self.userDefaults.set(key, forKey: "\(self.selectedProvider.rawValue)APIKey")
                     NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
                 } else {
-                    print("❌ [\(self.selectedProvider.rawValue)] API key verification failed")
                     self.isAPIKeyValid = false
                 }
                 completion(isValid)
@@ -168,23 +254,18 @@ class AIService: ObservableObject {
     }
     
     func verifyAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        // Skip verification for providers that don't require API key
         guard selectedProvider.requiresAPIKey else {
-            print("📝 [\(selectedProvider.rawValue)] API key verification skipped - not required")
             completion(true)
             return
         }
         
-        print("🔍 [\(selectedProvider.rawValue)] Verifying API key...")
-        print("🌐 Using base URL: \(selectedProvider.baseURL)")
-        print("🤖 Using model: \(selectedProvider.defaultModel)")
-        
-        // Special handling for different providers
         switch selectedProvider {
         case .gemini:
             verifyGeminiAPIKey(key, completion: completion)
         case .anthropic:
             verifyAnthropicAPIKey(key, completion: completion)
+        case .elevenLabs:
+            verifyElevenLabsAPIKey(key, completion: completion)
         default:
             verifyOpenAICompatibleAPIKey(key, completion: completion)
         }
@@ -198,7 +279,7 @@ class AIService: ObservableObject {
         request.addValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         
         let testBody: [String: Any] = [
-            "model": selectedProvider.defaultModel,
+            "model": currentModel,
             "messages": [
                 ["role": "user", "content": "test"]
             ],
@@ -207,19 +288,15 @@ class AIService: ObservableObject {
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: testBody)
         
-        print("📤 Sending verification request...")
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                print("❌ Network error during verification: \(error.localizedDescription)")
                 completion(false)
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("📥 Received response with status code: \(httpResponse.statusCode)")
                 completion(httpResponse.statusCode == 200)
             } else {
-                print("❌ Invalid response received")
                 completion(false)
             }
         }.resume()
@@ -234,7 +311,7 @@ class AIService: ObservableObject {
         request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         
         let testBody: [String: Any] = [
-            "model": selectedProvider.defaultModel,
+            "model": currentModel,
             "max_tokens": 1024,
             "system": "You are a test system.",
             "messages": [
@@ -244,26 +321,26 @@ class AIService: ObservableObject {
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: testBody)
         
-        print("📤 Sending Anthropic verification request...")
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                print("❌ Network error during Anthropic verification: \(error.localizedDescription)")
                 completion(false)
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("📥 Received Anthropic response with status code: \(httpResponse.statusCode)")
                 completion(httpResponse.statusCode == 200)
             } else {
-                print("❌ Invalid Anthropic response received")
                 completion(false)
             }
         }.resume()
     }
     
     private func verifyGeminiAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
-        var urlComponents = URLComponents(string: selectedProvider.baseURL)!
+        let baseEndpoint = "https://generativelanguage.googleapis.com/v1beta/models"
+        let model = currentModel
+        let fullURL = "\(baseEndpoint)/\(model):generateContent"
+        
+        var urlComponents = URLComponents(string: fullURL)!
         urlComponents.queryItems = [URLQueryItem(name: "key", value: key)]
         
         guard let url = urlComponents.url else {
@@ -287,26 +364,45 @@ class AIService: ObservableObject {
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: testBody)
         
-        print("📤 Sending Gemini verification request...")
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                print("❌ Network error during Gemini verification: \(error.localizedDescription)")
                 completion(false)
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("📥 Received Gemini response with status code: \(httpResponse.statusCode)")
                 completion(httpResponse.statusCode == 200)
             } else {
-                print("❌ Invalid Gemini response received")
                 completion(false)
             }
         }.resume()
     }
     
+    private func verifyElevenLabsAPIKey(_ key: String, completion: @escaping (Bool) -> Void) {
+        let url = URL(string: "https://api.elevenlabs.io/v1/user")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue(key, forHTTPHeaderField: "xi-api-key")
+        
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error = error {
+                self.logger.error("ElevenLabs API key verification failed: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                completion(httpResponse.statusCode == 200)
+            } else {
+                completion(false)
+            }
+        }.resume()
+    }
+    
+
+    
     func clearAPIKey() {
-        // Skip for providers that don't require API key
         guard selectedProvider.requiresAPIKey else { return }
         
         apiKey = ""
@@ -315,7 +411,6 @@ class AIService: ObservableObject {
         NotificationCenter.default.post(name: .aiProviderKeyChanged, object: nil)
     }
     
-    // Add method to check Ollama connection
     func checkOllamaConnection(completion: @escaping (Bool) -> Void) {
         Task { [weak self] in
             guard let self = self else { return }
@@ -326,31 +421,34 @@ class AIService: ObservableObject {
         }
     }
     
-    // Add method to get available Ollama models
     func fetchOllamaModels() async -> [OllamaService.OllamaModel] {
         await ollamaService.refreshModels()
         return ollamaService.availableModels
     }
     
-    // Add method to enhance text using Ollama
     func enhanceWithOllama(text: String, systemPrompt: String) async throws -> String {
-        return try await ollamaService.enhance(text, withSystemPrompt: systemPrompt)
+        logger.notice("🔄 Sending transcription to Ollama for enhancement (model: \(self.ollamaService.selectedModel))")
+        do {
+            let result = try await ollamaService.enhance(text, withSystemPrompt: systemPrompt)
+            logger.notice("✅ Ollama enhancement completed successfully (\(result.count) characters)")
+            return result
+        } catch {
+            logger.notice("❌ Ollama enhancement failed: \(error.localizedDescription)")
+            throw error
+        }
     }
     
-    // Add method to update Ollama base URL
     func updateOllamaBaseURL(_ newURL: String) {
         ollamaService.baseURL = newURL
         userDefaults.set(newURL, forKey: "ollamaBaseURL")
     }
     
-    // Add method to update selected Ollama model
     func updateSelectedOllamaModel(_ modelName: String) {
         ollamaService.selectedModel = modelName
         userDefaults.set(modelName, forKey: "ollamaSelectedModel")
     }
 }
 
-// Add extension for notification name
 extension Notification.Name {
     static let aiProviderKeyChanged = Notification.Name("aiProviderKeyChanged")
 } 
