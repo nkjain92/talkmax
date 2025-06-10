@@ -6,19 +6,10 @@
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B-brightgreen)
 
-  <p>
-    <a href="https://trytalkmax.com">Website</a> •
-    <a href="https://www.youtube.com/@trytalkmax">YouTube</a>
-  </p>
-
-  <a href="https://trytalkmax.com">
-    <img src="https://img.shields.io/badge/Download%20Now-Latest%20Version-blue?style=for-the-badge&logo=apple" alt="Download TalkMax" width="250"/>
-  </a>
 </div>
 
 ---
 
-TalkMax is a native macOS application that transcribes what you say to text almost instantly. You can find all the information and download the app from [here](https://trytalkmax.com).
 
 ![TalkMax Mac App](https://github.com/user-attachments/assets/12367379-83e7-48a6-b52c-4488a6a04bba)
 
